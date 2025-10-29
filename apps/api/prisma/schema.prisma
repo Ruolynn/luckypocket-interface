@@ -13,6 +13,7 @@ model User {
   farcasterFid  Int?      @unique
   farcasterName String?
   email         String?   @unique
+  inviteCode    String    @unique @default(cuid())
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
@@ -21,9 +22,15 @@ model User {
   inviter        User?     @relation("Invitations", fields: [inviterId], references: [id])
   inviterId      String?
   invited        User[]    @relation("Invitations")
+  invitations    Invitation[] @relation("Inviter")
+  invitationsReceived Invitation[] @relation("Invitee")
+  notifications  Notification[]
+  achievements   UserAchievement[]
 
   @@index([address])
   @@index([farcasterFid])
+  @@index([inviteCode])
+  @@map("users")
 }
 
 model Packet {
@@ -36,7 +43,7 @@ model Packet {
   totalAmount     String
   count           Int
   isRandom        Boolean
-  message         String?
+  message         String?   @db.VarChar(200)
   remainingAmount String
   remainingCount  Int
   expireTime      DateTime
@@ -48,12 +55,14 @@ model Packet {
   @@index([creatorId])
   @@index([expireTime])
   @@index([createdAt])
+  @@index([packetId])
+  @@map("packets")
 }
 
 model Claim {
   id        String   @id @default(cuid())
   packetId  String
-  packet    Packet   @relation(fields: [packetId], references: [id])
+  packet    Packet   @relation(fields: [packetId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id])
   amount    String
@@ -65,30 +74,52 @@ model Claim {
   @@index([packetId])
   @@index([userId])
   @@index([claimedAt])
+  @@index([isBest])
+  @@map("claims")
 }
 
 model Invitation {
   id         String   @id @default(cuid())
   inviterId  String
   inviteeId  String
+  inviter    User     @relation("Inviter", fields: [inviterId], references: [id])
+  invitee    User     @relation("Invitee", fields: [inviteeId], references: [id])
   rewardPaid Boolean  @default(false)
   createdAt  DateTime @default(now())
 
   @@unique([inviterId, inviteeId])
   @@index([inviterId])
   @@index([inviteeId])
+  @@map("invitations")
 }
 
 model Notification {
   id        String   @id @default(cuid())
   userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   type      String
-  title     String
-  content   String
+  title     String   @db.VarChar(200)
+  content   String   @db.Text
   data      Json?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@index([userId, read])
   @@index([createdAt])
+  @@index([type])
+  @@map("notifications")
+}
+
+model UserAchievement {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code        String
+  unlockedAt  DateTime  @default(now())
+  metadata    Json?
+
+  @@unique([userId, code])
+  @@index([userId])
+  @@index([code])
+  @@map("user_achievements")
 }

@@ -48,7 +48,7 @@ Base 链上的社交红包 dApp,深度集成 Farcaster 生态,实现微信红包
 
 ### 技术亮点
 - EVM 兼容(可扩展到其他 L2)
-- AA 智能账户(Privy/Biconomy)
+- 外部钱包登录（RainbowKit + SIWE），可选 AA 代付（Biconomy/ERC-4337）
 - Farcaster Frames 深度集成
 - 实时 WebSocket 通知
 - 链上+链下混合架构
@@ -121,13 +121,12 @@ WebSocket 推送结果 → 显示动画
 | **Next.js** | 14.x | React 框架 | App Router, SSR |
 | **TypeScript** | 5.x | 类型安全 | 强类型开发 |
 | **Tailwind CSS** | 3.x | 样式 | 快速 UI 开发 |
-| **Viem** | 2.x | EVM 交互 | 替代 ethers.js |
-| **Wagmi** | 2.x | React Hooks | 钱包连接 |
-| **Privy** | latest | AA 钱包 | 邮箱登录,无 Gas |
-| **Frog** | latest | Frames 开发 | Farcaster 官方推荐 |
+| **Viem** | 2.x | EVM 交互 | 主要链上 SDK |
+| **Wagmi** | 2.x | React Hooks | 钱包连接与签名 |
+| **RainbowKit** | latest | 钱包 UI | 外部钱包优先方案 |
 | **Framer Motion** | latest | 动画 | 红包动画效果 |
 | **Zustand** | 4.x | 状态管理 | 轻量级 |
-| **React Query** | 5.x | 数据获取 | 缓存优化 |
+| **TanStack Query** | 5.x | 数据获取 | 缓存优化 |
 | **Socket.IO Client** | 4.x | 实时通信 | WebSocket |
 
 ### 后端技术栈
@@ -135,271 +134,38 @@ WebSocket 推送结果 → 显示动画
 | 技术 | 版本 | 用途 | 备注 |
 |------|------|------|------|
 | **Node.js** | 20.x LTS | 运行环境 | - |
-| **Express** | 4.x | Web 框架 | RESTful API |
+| **Fastify** | 4.x | Web 框架 | 高性能、插件生态 |
 | **TypeScript** | 5.x | 类型安全 | - |
+| **Zod** | 3.x | 输入校验 | 与 Fastify 搭配 |
 | **Prisma** | 5.x | ORM | 数据库操作 |
 | **PostgreSQL** | 16.x | 主数据库 | 关系型数据 |
-| **Redis** | 7.x | 缓存/队列 | 高性能缓存 |
-| **Bull** | 4.x | 任务队列 | 异步任务处理 |
-| **Socket.IO** | 4.x | WebSocket | 实时推送 |
+| **Redis** | 7.x | 缓存/队列 | 幂等/锁/Socket 适配 |
+| **Socket.IO** | 4.x | WebSocket | Redis Adapter 多实例 |
 | **Viem** | 2.x | 链上交互 | 后端调用合约 |
-| **JWT** | 9.x | 身份验证 | Token 认证 |
+| **JWT** | 9.x | 身份验证 | SIWE + JWT |
 
 ### 区块链技术栈
 
 | 技术 | 版本 | 用途 | 备注 |
 |------|------|------|------|
-| **Solidity** | 0.8.24 | 智能合约 | 最新稳定版 |
+| **Solidity** | 0.8.20 | 智能合约 | 稳定版本 |
 | **Foundry** | latest | 合约框架 | 编译/测试/部署 |
 | **OpenZeppelin** | 5.x | 合约库 | 安全标准实现 |
-| **Chainlink VRF** | v2.5 | 随机数 | 可验证随机 |
-| **Base Mainnet** | - | 部署链 | L2 低成本 |
-| **Base Sepolia** | - | 测试网 | 开发测试 |
+| **Chainlink VRF** | v2.5 | 随机数 | 可验证随机（可选） |
+| **Ethereum Sepolia** | - | 测试网 | 开发测试 |
 
 ### 外部服务
 
 | 服务 | 用途 | 备注 |
 |------|------|------|
-| **Alchemy** | RPC 节点 | Base RPC 服务 |
-| **Privy** | AA 钱包服务 | 托管账户抽象 |
+| **Alchemy** | RPC 节点 | Ethereum Sepolia/Mainnet |
 | **Farcaster Hub** | 社交数据 | 用户关系图谱 |
-| **Pinata/IPFS** | 存储 | NFT 元数据 |
+| **Pinata/IPFS** | 存储 | NFT 元数据（可选） |
 | **Vercel** | 部署 | 前端托管 |
-| **Railway/Render** | 部署 | 后端托管 |
+| **Railway/Render** | 部署 | 后端托管（MVP/内测） |
 | **Sentry** | 监控 | 错误追踪 |
 
----
-
-## 开发环境配置
-
-### 系统要求
-
-```bash
-# 操作系统
-Ubuntu 22.04+ / macOS 13+ / Windows 11 WSL2
-
-# 软件版本
-Node.js: v20.x LTS
-pnpm: v8.x+
-Git: v2.40+
-Docker: v24.x+ (可选)
-PostgreSQL: v16.x
-Redis: v7.x
-```
-
-### 环境安装
-
-#### 1. 安装 Node.js 和 pnpm
-
-```bash
-# 使用 nvm 安装 Node.js
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-nvm install 20
-nvm use 20
-
-# 安装 pnpm
-npm install -g pnpm
-
-# 验证
-node -v  # v20.x.x
-pnpm -v  # 8.x.x
-```
-
-#### 2. 安装 Foundry (智能合约)
-
-```bash
-# 安装 Foundry
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
-
-# 验证
-forge --version
-cast --version
-anvil --version
-```
-
-#### 3. 安装数据库
-
-```bash
-# PostgreSQL (使用 Docker)
-docker run --name redpacket-postgres \
-  -e POSTGRES_PASSWORD=your_password \
-  -e POSTGRES_DB=redpacket \
-  -p 5432:5432 \
-  -d postgres:16
-
-# Redis (使用 Docker)
-docker run --name redpacket-redis \
-  -p 6379:6379 \
-  -d redis:7-alpine
-
-# 或者本地安装
-sudo apt install postgresql-16 redis-server  # Ubuntu
-brew install postgresql@16 redis             # macOS
-```
-
-### 项目初始化
-
-#### 1. 创建项目结构
-
-```bash
-mkdir base-redpacket-dapp
-cd base-redpacket-dapp
-
-# 创建目录结构
-mkdir -p {contracts,frontend,backend,scripts,docs}
-
-# 初始化 Git
-git init
-```
-
-#### 2. 智能合约项目
-
-```bash
-cd contracts
-forge init
-pnpm init
-
-# 安装依赖
-forge install OpenZeppelin/openzeppelin-contracts@v5.0.0
-forge install smartcontractkit/chainlink@v2.5.0
-```
-
-**foundry.toml** 配置:
-```toml
-[profile.default]
-src = "src"
-out = "out"
-libs = ["lib"]
-solc_version = "0.8.24"
-optimizer = true
-optimizer_runs = 200
-via_ir = true
-
-[rpc_endpoints]
-base = "https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-base_sepolia = "https://base-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}"
-
-[etherscan]
-base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
-base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
-```
-
-#### 3. 前端项目
-
-```bash
-cd ../frontend
-pnpm create next-app@latest . --typescript --tailwind --app --src-dir
-
-# 安装核心依赖
-pnpm add viem wagmi @privy-io/react-auth @tanstack/react-query
-pnpm add frog hono
-pnpm add framer-motion zustand
-pnpm add socket.io-client axios
-
-# 开发依赖
-pnpm add -D @types/node prettier eslint
-```
-
-**tsconfig.json**:
-```json
-{
-  "compilerOptions": {
-    "target": "ES2020",
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
-    "jsx": "preserve",
-    "module": "esnext",
-    "moduleResolution": "bundler",
-    "resolveJsonModule": true,
-    "allowJs": true,
-    "strict": true,
-    "noEmit": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "incremental": true,
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "plugins": [{ "name": "next" }]
-  },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
-}
-```
-
-#### 4. 后端项目
-
-```bash
-cd ../backend
-pnpm init
-
-# 安装依赖
-pnpm add express cors dotenv
-pnpm add prisma @prisma/client
-pnpm add socket.io redis bull
-pnpm add viem jsonwebtoken bcrypt
-pnpm add winston express-rate-limit helmet
-
-# 开发依赖
-pnpm add -D typescript @types/node @types/express
-pnpm add -D tsx nodemon prisma
-```
-
-**tsconfig.json**:
-```json
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "commonjs",
-    "lib": ["ES2022"],
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "types": ["node"]
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist"]
-}
-```
-
-**package.json scripts**:
-```json
-{
-  "scripts": {
-    "dev": "nodemon --exec tsx src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
-  }
-}
-```
-
-### 环境变量配置
-
-#### contracts/.env
-```bash
-# RPC
-ALCHEMY_API_KEY=your_alchemy_api_key
-
-# 部署私钥 (仅测试网使用,主网用硬件钱包)
-PRIVATE_KEY=your_private_key
-
-# 区块链浏览器
-BASESCAN_API_KEY=your_basescan_api_key
-
-# Chainlink VRF (Base Sepolia)
-VRF_COORDINATOR=0x5C210eF41CD1a72de73bF76eC39637bB0d3d7BEE
-VRF_KEY_HASH=0xd4bb89654db74673a187bd804519e65e3f71a52bc55f11da7601a13dcf505314
-VRF_SUBSCRIPTION_ID=your_subscription_id
-```
+### 环境变量配置（更新）
 
 #### frontend/.env.local
 ```bash
@@ -407,21 +173,16 @@ VRF_SUBSCRIPTION_ID=your_subscription_id
 NEXT_PUBLIC_API_URL=http://localhost:3001
 NEXT_PUBLIC_WS_URL=ws://localhost:3001
 
-# 链配置
-NEXT_PUBLIC_CHAIN_ID=8453  # Base Mainnet
-# NEXT_PUBLIC_CHAIN_ID=84532  # Base Sepolia (测试)
-
-# Alchemy
+# 链配置（Sepolia）
+NEXT_PUBLIC_CHAIN_ID=11155111
 NEXT_PUBLIC_ALCHEMY_API_KEY=your_alchemy_api_key
-
-# Privy
-NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 
 # 合约地址 (部署后填入)
 NEXT_PUBLIC_RED_PACKET_CONTRACT=0x...
-NEXT_PUBLIC_USDC_CONTRACT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+# 可选：USDC 测试代币（如有）
+NEXT_PUBLIC_USDC_CONTRACT=0x...
 
-# Farcaster
+# Farcaster（可选）
 NEXT_PUBLIC_FARCASTER_DOMAIN=https://warpcast.com
 ```
 
@@ -432,27 +193,23 @@ NODE_ENV=development
 PORT=3001
 
 # 数据库
-DATABASE_URL=postgresql://postgres:your_password@localhost:5432/redpacket
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/hongbao
 REDIS_URL=redis://localhost:6379
 
-# JWT
+# JWT / SIWE
 JWT_SECRET=your_super_secret_jwt_key_min_32_chars
-JWT_EXPIRES_IN=7d
+SIWE_DOMAIN=localhost
+SIWE_STATEMENT=Sign in to HongBao dApp
 
-# 区块链
-CHAIN_ID=8453
-RPC_URL=https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_API_KEY}
+# 区块链（Sepolia）
+CHAIN_ID=11155111
+RPC_URL=https://eth-sepolia.g.alchemy.com/v2/${ALCHEMY_API_KEY}
 ALCHEMY_API_KEY=your_alchemy_api_key
 
 # 合约地址
 RED_PACKET_CONTRACT=0x...
-USDC_CONTRACT=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-
-# 钱包 (服务端钱包,用于 Gas 代付)
-PAYMASTER_PRIVATE_KEY=your_paymaster_private_key
-
-# Farcaster
-FARCASTER_API_KEY=your_farcaster_api_key
+# 可选测试代币
+USDC_CONTRACT=0x...
 
 # 监控
 SENTRY_DSN=your_sentry_dsn
@@ -1170,7 +927,7 @@ frontend/
 │   │       └── Footer.tsx
 │   ├── lib/                 # 工具库
 │   │   ├── contracts/      # 合约 ABI 和地址
-│   │   ├── privy.ts        # Privy 配置
+│   │   ├── siwe.ts         # SIWE 配置（可选）
 │   │   ├── wagmi.ts        # Wagmi 配置
 │   │   ├── api.ts          # API 客户端
 │   │   └── socket.ts       # WebSocket 客户端
@@ -1213,22 +970,14 @@ export const config = createConfig({
 })
 ```
 
-**lib/privy.ts**:
+**lib/siwe.ts**（可选配置）:
 ```typescript
-import { PrivyClientConfig } from '@privy-io/react-auth'
-
-export const privyConfig: PrivyClientConfig = {
-  embeddedWallets: {
-    createOnLogin: 'users-without-wallets',
-    noPromptOnSignature: true,
-  },
-  loginMethods: ['email', 'google', 'farcaster'],
-  appearance: {
-    theme: 'light',
-    accentColor: '#FF4444',
-    logo: '/logo.png',
-  },
-  supportedChains: [base, baseSepolia],
+export const siweConfig = {
+  domain: process.env.NEXT_PUBLIC_APP_URL || 'localhost:3000',
+  statement: 'Sign in to HongBao dApp',
+  uri: process.env.NEXT_PUBLIC_APP_URL,
+  version: '1',
+  chainId: Number(process.env.NEXT_PUBLIC_CHAIN_ID || 11155111), // Sepolia
 }
 ```
 
@@ -1364,12 +1113,14 @@ export function useHasClaimed(packetId: `0x${string}` | undefined, address: Addr
 
 import { useState } from 'react'
 import { useCreateRedPacket } from '@/hooks/useRedPacket'
-import { usePrivy } from '@privy-io/react-auth'
+import { useAccount } from 'wagmi'
 import { formatUnits } from 'viem'
 import { motion } from 'framer-motion'
+import { useAuth } from '@/hooks/useAuth' // 自定义 SIWE hook
 
 export default function CreateRedPacketForm() {
-  const { user, authenticated } = usePrivy()
+  const { address, isConnected } = useAccount()
+  const { isAuthenticated, signIn } = useAuth() // SIWE hook
   const { createPacket, isPending, hash } = useCreateRedPacket()
 
   const [amount, setAmount] = useState('')
@@ -1791,32 +1542,32 @@ export default function RootLayout({
 }
 ```
 
-**app/providers.tsx**:
+**app/providers.tsx**（已更新为 RainbowKit + SIWE）:
 ```typescript
 'use client'
 
+// 注意：此示例已更新为 RainbowKit + SIWE 方案
+// 旧版 Privy 示例已弃用，参考下方 "RainbowKit Providers 与 Wagmi（新增示例）" 章节
+
 import { WagmiProvider } from 'wagmi'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { PrivyProvider } from '@privy-io/react-auth'
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
 import { config } from '@/lib/wagmi'
-import { privyConfig } from '@/lib/privy'
 import { Toaster } from 'react-hot-toast'
+import '@rainbow-me/rainbowkit/styles.css'
 
 const queryClient = new QueryClient()
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_APP_ID!}
-      config={privyConfig}
-    >
-      <WagmiProvider config={config}>
-        <QueryClientProvider client={queryClient}>
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider theme={darkTheme()}>
           {children}
           <Toaster position="top-center" />
-        </QueryClientProvider>
-      </WagmiProvider>
-    </PrivyProvider>
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
   )
 }
 ```
@@ -2965,7 +2716,7 @@ git push -u origin main
     "NEXT_PUBLIC_WS_URL": "@ws_url",
     "NEXT_PUBLIC_CHAIN_ID": "@chain_id",
     "NEXT_PUBLIC_ALCHEMY_API_KEY": "@alchemy_key",
-    "NEXT_PUBLIC_PRIVY_APP_ID": "@privy_app_id",
+    "NEXT_PUBLIC_WC_PROJECT_ID": "@walletconnect_project_id", // WalletConnect (可选)
     "NEXT_PUBLIC_RED_PACKET_CONTRACT": "@contract_address",
     "NEXT_PUBLIC_USDC_CONTRACT": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
   }
@@ -3120,7 +2871,7 @@ volumes:
 ### MVP 功能清单
 
 ✅ **必须有(P0)**
-- 用户登录(Privy)
+- 用户登录（SIWE + RainbowKit）
 - 创建红包(固定/随机)
 - 抢红包(Frame + Web)
 - 红包详情页
@@ -3355,7 +3106,8 @@ volumes:
 
 **前端**
 - [Next.js 文档](https://nextjs.org/docs)
-- [Privy 文档](https://docs.privy.io/)
+- [RainbowKit 文档](https://www.rainbowkit.com/)
+- [SIWE 规范](https://eips.ethereum.org/EIPS/eip-4361)
 - [Wagmi 文档](https://wagmi.sh/)
 
 **后端**
@@ -3367,7 +3119,7 @@ volumes:
 
 - [Base Discord](https://base.org/discord)
 - [Farcaster Developers](https://warpcast.com/~/channel/fc-devs)
-- [Privy Discord](https://privy.io/discord)
+- [RainbowKit Discord](https://discord.gg/rainbowkit)
 
 ### 开发工具
 
@@ -3385,7 +3137,7 @@ volumes:
 
 ✅ **技术架构**: 前后端分离 + 区块链
 ✅ **智能合约**: Solidity + Foundry + 安全审计
-✅ **前端**: Next.js + Privy AA + Farcaster Frames
+✅ **前端**: Next.js + RainbowKit + SIWE + Farcaster Frames
 ✅ **后端**: Node.js + Prisma + WebSocket
 ✅ **测试**: 单元测试 + 集成测试 + E2E
 ✅ **部署**: Vercel + Railway + Docker
@@ -3401,3 +3153,285 @@ volumes:
 **记住**: 完成比完美更重要。先做出 MVP,快速上线,根据用户反馈迭代!
 
 祝你开发顺利! 🚀🧧
+
+---
+
+## RainbowKit Providers 与 Wagmi（新增示例）
+
+### RainbowKit Providers 与 Wagmi（Sepolia）
+
+**lib/wagmi.ts（Sepolia）**:
+```typescript
+import { createConfig, http } from 'wagmi'
+import { sepolia } from 'wagmi/chains'
+import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors'
+
+export const config = createConfig({
+  chains: [sepolia],
+  connectors: [
+    injected(),
+    coinbaseWallet({ appName: 'RedPacket dApp' }),
+    walletConnect({ projectId: process.env.NEXT_PUBLIC_WC_PROJECT_ID! }),
+  ],
+  transports: {
+    [sepolia.id]: http(
+      `https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`
+    ),
+  },
+})
+```
+
+**app/providers.tsx（RainbowKit）**:
+```typescript
+'use client'
+
+// 注意：此示例已更新为 RainbowKit + SIWE 方案
+// 旧版 Privy 示例已弃用，参考下方 "RainbowKit Providers 与 Wagmi（新增示例）" 章节
+
+import { WagmiProvider } from 'wagmi'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RainbowKitProvider, darkTheme } from '@rainbow-me/rainbowkit'
+import { config } from '@/lib/wagmi'
+import { Toaster } from 'react-hot-toast'
+import '@rainbow-me/rainbowkit/styles.css'
+
+const queryClient = new QueryClient()
+
+export function Providers({ children }: { children: React.ReactNode }) {
+  return (
+    <WagmiProvider config={config}>
+      <QueryClientProvider client={queryClient}>
+        <RainbowKitProvider theme={darkTheme()}>
+          {children}
+          <Toaster position="top-center" />
+        </RainbowKitProvider>
+      </QueryClientProvider>
+    </WagmiProvider>
+  )
+}
+```
+
+### 后端（Fastify + Zod）示例（新增）
+
+> 本小节为定稿方案示例，优先于文中较早的 Express 片段。
+
+主入口（src/index.ts）
+```typescript
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
+import jwt from '@fastify/jwt'
+
+const app = Fastify({ logger: true })
+await app.register(cors, { origin: true, credentials: true })
+await app.register(rateLimit, { max: 120, timeWindow: '1 minute' })
+await app.register(jwt, { secret: process.env.JWT_SECRET! })
+
+// 路由
+await app.register(import('./routes/auth').then(m => m.default), { prefix: '/api/auth' })
+await app.register(import('./routes/packets').then(m => m.default), { prefix: '/api/packets' })
+app.get('/health', async () => ({ status: 'ok' }))
+
+const port = Number(process.env.PORT || 3001)
+app.listen({ port, host: '0.0.0.0' })
+```
+
+路由与校验（src/routes/packets.ts）
+```typescript
+import { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+
+const plugin: FastifyPluginAsync = async (app) => {
+  app.addHook('preHandler', app.authenticate as any)
+
+  app.post('/create', async (req, reply) => {
+    const input = z.object({
+      txHash: z.string().startsWith('0x'),
+      packetId: z.string().startsWith('0x'),
+      message: z.string().max(100).optional(),
+      amount: z.string(),
+      count: z.number().int().min(1).max(200),
+      isRandom: z.boolean(),
+    }).parse(req.body)
+    return { success: true }
+  })
+
+  app.post('/claim', async (req, reply) => {
+    const input = z.object({ packetId: z.string().startsWith('0x') }).parse(req.body)
+    return { success: true, data: { amount: '...' } }
+  })
+}
+export default plugin
+```
+
+### SIWE 详细接口（Fastify + Zod）
+
+端点
+- GET `/api/auth/siwe/nonce` → 返回 `{ nonce }`，Redis 存 300s
+- POST `/api/auth/siwe/verify` → Body `{ message, signature }`，验证成功签发 JWT(7d)
+- POST `/api/auth/logout` → 前端清理（可选）
+- GET `/api/auth/me` → 需 JWT，返回 `{ address, userId }`
+- POST `/api/auth/refresh` → 可选，使用短期 Refresh Token 换新 Access Token
+
+示例（Fastify + Zod 完整实现）
+```typescript
+import { FastifyPluginAsync } from 'fastify'
+import { z } from 'zod'
+import { SiweMessage } from 'siwe'
+
+const siwePlugin: FastifyPluginAsync = async (app) => {
+  // GET /api/auth/siwe/nonce
+  app.get('/api/auth/siwe/nonce', async () => {
+    const nonce = crypto.randomUUID()
+    await app.redis.setex(`siwe:nonce:${nonce}`, 300, '1')
+    return { nonce }
+  })
+
+  // POST /api/auth/siwe/verify
+  app.post('/api/auth/siwe/verify', async (req, reply) => {
+    const { message, signature } = z
+      .object({
+        message: z.string().min(1),
+        signature: z.string().regex(/^0x[0-9a-fA-F]+$/),
+      })
+      .parse(req.body)
+
+    const msg = new SiweMessage(message)
+    let fields
+    try {
+      fields = await msg.validate(signature)
+    } catch {
+      return reply.code(400).send({ error: 'INVALID_SIWE_SIGNATURE' })
+    }
+
+    const used = await app.redis.del(`siwe:nonce:${fields.nonce}`)
+    if (used === 0) return reply.code(400).send({ error: 'INVALID_NONCE' })
+
+    const address = fields.address.toLowerCase()
+    const user = await app.prisma.user.upsert({
+      where: { address },
+      update: {},
+      create: { address },
+    })
+
+    const token = app.jwt.sign({ userId: user.id, address }, { expiresIn: '7d' })
+    // 可选：签发 refreshToken（1d）
+    // const refreshToken = app.jwt.sign({ userId: user.id, t: 'refresh' }, { expiresIn: '1d' })
+
+    return { token, user: { id: user.id, address } }
+  })
+
+  // POST /api/auth/logout（可选：仅前端清理）
+  app.post('/api/auth/logout', async () => ({ success: true }))
+
+  // GET /api/auth/me（需 JWT）
+  app.get('/api/auth/me', { preHandler: [app.authenticate as any] }, async (req: any) => {
+    const user = await app.prisma.user.findUnique({ where: { id: req.user.userId } })
+    return user ? { id: user.id, address: user.address } : null
+  })
+
+  // POST /api/auth/refresh（可选）
+  app.post('/api/auth/refresh', async (req, reply) => {
+    // 若采用 refreshToken 流，校验 refreshToken 并签发新 access token
+    try {
+      const { refreshToken } = z.object({ refreshToken: z.string() }).parse(req.body)
+      const payload = app.jwt.verify(refreshToken) as any
+      if (payload.t !== 'refresh') return reply.code(400).send({ error: 'INVALID_REFRESH_TOKEN' })
+      const token = app.jwt.sign({ userId: payload.userId, address: payload.address }, { expiresIn: '7d' })
+      return { token }
+    } catch {
+      return reply.code(401).send({ error: 'UNAUTHORIZED' })
+    }
+  })
+}
+
+export default siwePlugin
+```
+
+错误码
+- 400_INVALID_BODY：请求体不合法
+- 400_INVALID_NONCE：Nonce 不存在/已使用
+- 400_INVALID_SIWE_SIGNATURE：签名校验失败
+- 400_INVALID_REFRESH_TOKEN：刷新令牌无效
+- 401_UNAUTHORIZED：JWT 无效或缺失
+- 429_TOO_MANY_REQUESTS：限流
+- 500_INTERNAL_ERROR：服务端错误
+
+刷新策略
+- 默认简化：仅 Access Token（7 天），过期重新 SIWE 登录
+- 若需要无感刷新：启用 `POST /api/auth/refresh` 并签发 1 天的 `refreshToken`
+
+---
+
+### Socket.IO + Redis Adapter 与事件规范
+
+- 适配：`@socket.io/redis-adapter`，Redis `PUB/SUB`；多实例广播
+- 房间命名
+  - `user:<userId>`：用户私有
+  - `packet:<packetId>`：红包房间
+- 事件命名
+  - `packet:created` → `{ packetId, creatorId, totalAmount, count }`
+  - `packet:claimed` → `{ packetId, claimer, amount, remainingCount }`
+  - `leaderboard:update` → `{ type, range, top: [...] }`
+  - `achievement:unlocked` → `{ userId, code }`
+
+初始化（片段）
+```typescript
+import { Server } from 'socket.io'
+import { createAdapter } from '@socket.io/redis-adapter'
+import { createClient } from 'redis'
+
+export async function initIO(server: any) {
+  const io = new Server(server, { cors: { origin: true, credentials: true } })
+  const pub = createClient({ url: process.env.REDIS_URL })
+  const sub = pub.duplicate()
+  await Promise.all([pub.connect(), sub.connect()])
+  io.adapter(createAdapter(pub, sub))
+  io.use(async (socket, next) => {
+    // 解析 JWT -> socket.data.userId
+    next()
+  })
+  io.on('connection', (s) => {
+    s.on('subscribe:packet', (pid: string) => s.join(`packet:${pid}`))
+  })
+  return io
+}
+```
+
+---
+
+### 错误处理与幂等/分布式锁封装
+
+统一错误（建议）
+- 结构：`{ error: string; message?: string; requestId?: string }`
+- 中间件：捕获未处理异常，生成 `requestId`，记录日志（Sentry）
+
+幂等键（Idempotency-Key）
+```typescript
+import type { FastifyRequest, FastifyReply } from 'fastify'
+import Redis from 'ioredis'
+const redis = new Redis(process.env.REDIS_URL!)
+
+export function withIdempotency(ttlSec = 60) {
+  return async (req: FastifyRequest, reply: FastifyReply) => {
+    const key = (req.headers['idempotency-key'] as string) || ''
+    if (!key) return reply.code(400).send({ error: 'MISSING_IDEMPOTENCY_KEY' })
+    const set = await redis.set(`idem:${key}`, '1', 'EX', ttlSec, 'NX')
+    if (set !== 'OK') return reply.code(409).send({ error: 'REQUEST_REPLAYED' })
+  }
+}
+```
+
+分布式锁（领取/Frames 代理等关键路径）
+```typescript
+export async function withLock<T>(lockKey: string, ttlSec = 10, fn: () => Promise<T>) {
+  const ok = await redis.set(`lock:${lockKey}`, '1', 'EX', ttlSec, 'NX')
+  if (ok !== 'OK') throw new Error('LOCKED')
+  try { return await fn() } finally { await redis.del(`lock:${lockKey}`) }
+}
+```
+
+返回语义
+- 409_CONFLICT：幂等冲突/锁占用
+- 423_LOCKED（可选）：资源被占用
+- 504_TIMEOUT：外部依赖超时（链上读写）
