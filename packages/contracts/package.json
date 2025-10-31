@@ -1,0 +1,14 @@
+{
+  "name": "@hongbao/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "forge build",
+    "test": "forge test",
+    "deploy:sepolia": "forge script script/Deploy.s.sol:DeployScript --rpc-url $ETHEREUM_RPC_URL --broadcast --verify"
+  },
+  "devDependencies": {
+    "forge-std": "^1.1.2"
+  }
+}
+

@@ -1,15 +1,15 @@
 import fp from 'fastify-plugin'
-import IORedis from 'ioredis'
+import Redis from 'ioredis'
 
 declare module 'fastify' {
   interface FastifyInstance {
-    redis: IORedis.Redis
+    redis: Redis
   }
 }
 
 export default fp(async (app) => {
   const url = process.env.REDIS_URL
-  const client = new IORedis(url || 'redis://127.0.0.1:6379')
+  const client = new Redis(url || 'redis://127.0.0.1:6379')
 
   app.addHook('onClose', async () => {
     try {

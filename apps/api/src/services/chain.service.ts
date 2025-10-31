@@ -14,6 +14,8 @@ export function getContractAddress() {
 export const topics = {
   PacketCreated: parseAbiItem('event PacketCreated(bytes32 indexed packetId, address indexed creator, address token, uint256 totalAmount, uint32 count, bool isRandom, uint256 expireTime)'),
   PacketClaimed: parseAbiItem('event PacketClaimed(bytes32 indexed packetId, address indexed claimer, uint256 amount, uint32 remainingCount)'),
+  PacketVrfRequested: parseAbiItem('event PacketVrfRequested(bytes32 indexed packetId, uint256 indexed requestId)'),
+  PacketRandomReady: parseAbiItem('event PacketRandomReady(bytes32 indexed packetId)'),
 }
 
 

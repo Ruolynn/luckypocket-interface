@@ -39,12 +39,17 @@ const plugin: FastifyPluginAsync = async (app) => {
     await ensureIdempotency(req, reply)
     if (reply.sent) return
     const { packetId } = claimSchema.parse(req.body)
-    const result = await withLock(app.redis, `claim:${packetId}:${req.user.userId}`, 10, async () => {
-      return await claimPacketRecord(app.prisma, packetId, req.user.userId)
+    const userId = (req as any).user?.userId || (req as any).user?.sub || 'unknown'
+    const result = await withLock(app.redis, `claim:${packetId}:${userId}`, 10, async () => {
+      return await claimPacketRecord(app.prisma, packetId, userId)
     })
-    if ('error' in result) {
-      const map: any = { PACKET_NOT_FOUND: 404, PACKET_EXPIRED: 400, PACKET_ALREADY_CLAIMED: 409 }
-      return reply.code(map[result.error] || 400).send({ error: result.error })
+    if ('error' in (result as any)) {
+      const err = (result as any).error as string
+      let status = 400
+      if (err === 'PACKET_NOT_FOUND') status = 404
+      else if (err === 'PACKET_EXPIRED') status = 400
+      else if (err === 'PACKET_ALREADY_CLAIMED') status = 409
+      return reply.code(status).send({ error: err })
     }
     return { claim: result.claim }
   })
@@ -60,8 +65,19 @@ const plugin: FastifyPluginAsync = async (app) => {
     const { packetId } = z.object({ packetId: z.string() }).parse(req.params)
     const packet = await app.prisma.packet.findUnique({ where: { packetId } })
     if (!packet) return reply.code(404).send({ error: 'PACKET_NOT_FOUND' })
-    const claims = await app.prisma.claim.findMany({ where: { packetId: packet.id }, orderBy: { claimedAt: 'desc' } })
+    const claims = await app.prisma.claim.findMany({
+      where: { packetId: packet.id },
+      include: { user: { select: { address: true } } },
+      orderBy: { claimedAt: 'desc' },
+    })
     return { claims }
+  })
+
+  app.get('/api/packets/by-tx/:txHash', async (req, reply) => {
+    const { txHash } = z.object({ txHash: z.string() }).parse(req.params)
+    const packet = await app.prisma.packet.findUnique({ where: { txHash } })
+    if (!packet) return reply.code(404).send({ error: 'PACKET_NOT_FOUND' })
+    return { packet }
   })
 }
 

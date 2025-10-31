@@ -23,23 +23,48 @@ export async function startSyncPacketsJob(app: FastifyInstance) {
       for (const log of createdLogs) {
         const pid = log.args.packetId as `0x${string}`
         const txHash = log.transactionHash as `0x${string}`
+        const creator = (log.args.creator as string).toLowerCase()
         const expire = Number(log.args.expireTime)
-        // 仅更新已存在记录的附加信息，避免外部创建导致缺失 creatorId 外键
-        await app.prisma.packet.updateMany({
+        
+        // 查找或创建用户
+        const user = await app.prisma.user.upsert({
+          where: { address: creator },
+          update: {},
+          create: { address: creator },
+          select: { id: true },
+        })
+
+        // 创建或更新红包记录
+        await app.prisma.packet.upsert({
           where: { packetId: pid },
-          data: {
+          update: {
             txHash,
             token: (log.args.token as string).toLowerCase(),
             totalAmount: (log.args.totalAmount as bigint).toString(),
             count: Number(log.args.count),
             isRandom: Boolean(log.args.isRandom),
             expireTime: new Date(expire * 1000),
+            remainingAmount: (log.args.totalAmount as bigint).toString(),
+            remainingCount: Number(log.args.count),
+          },
+          create: {
+            packetId: pid,
+            txHash,
+            creatorId: user.id,
+            token: (log.args.token as string).toLowerCase(),
+            totalAmount: (log.args.totalAmount as bigint).toString(),
+            count: Number(log.args.count),
+            isRandom: Boolean(log.args.isRandom),
+            expireTime: new Date(expire * 1000),
+            remainingAmount: (log.args.totalAmount as bigint).toString(),
+            remainingCount: Number(log.args.count),
           },
         })
+        
         // WS 广播
         app.io.to(`packet:${pid}`).emit('packet:created', {
           packetId: pid,
-          creator: log.args.creator,
+          creator,
           totalAmount: (log.args.totalAmount as bigint).toString(),
           count: Number(log.args.count),
         })
@@ -85,6 +110,19 @@ export async function startSyncPacketsJob(app: FastifyInstance) {
           amount,
           remainingCount: Number(log.args.remainingCount),
         })
+      }
+
+      // PacketRandomReady（随机切分就绪）
+      const readyLogs = await client.getLogs({
+        address,
+        event: topics.PacketRandomReady,
+        fromBlock: from,
+        toBlock: latest,
+      })
+      for (const log of readyLogs) {
+        const pid = log.args.packetId as `0x${string}`
+        // 通知前端该红包的随机已就绪
+        app.io.to(`packet:${pid}`).emit('packet:randomReady', { packetId: pid })
       }
 
       await app.redis.set(REDIS_LAST_BLOCK_KEY, latest.toString())

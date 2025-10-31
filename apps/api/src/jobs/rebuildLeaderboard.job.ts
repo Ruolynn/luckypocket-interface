@@ -28,18 +28,18 @@ export async function startRebuildLeaderboardJob(app: FastifyInstance) {
         await app.redis.zadd(luckKey, Number(score), userId)
       }
 
-      // 慷慨榜(month): 创建红包总额
+      // 慷慨榜(month): 创建红包数量（字符串金额暂不参与求和）
       const monthFrom = startOfUTCDaysAgo(30)
       const generous = await app.prisma.packet.groupBy({
         by: ['creatorId'],
         where: { createdAt: { gte: monthFrom } },
-        _sum: { totalAmount: true },
+        _count: { _all: true },
       })
       const generousKey = 'lb:generous:month'
       await app.redis.del(generousKey)
       for (const row of generous) {
-        const score = BigInt(row._sum.totalAmount || '0')
-        await app.redis.zadd(generousKey, Number(score), row.creatorId)
+        const score = row._count._all
+        await app.redis.zadd(generousKey, score, row.creatorId)
       }
 
       // 活跃榜(realtime): 参与次数（近24小时领取次数）

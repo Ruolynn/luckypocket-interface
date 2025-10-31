@@ -5,10 +5,12 @@ import prismaPlugin from './plugins/prisma'
 import redisPlugin from './plugins/redis'
 import jwtPlugin from './plugins/jwt'
 import socketPlugin from './plugins/socket'
+import chainPlugin from './plugins/chain'
 import authRoutes from './routes/auth'
 import packetRoutes from './routes/packets'
 import inviteRoutes from './routes/growth/invite'
 import leaderboardRoutes from './routes/growth/leaderboard'
+import frameRoutes from './routes/frame'
 import { startSyncPacketsJob } from './jobs/syncPackets.job'
 import { startRebuildLeaderboardJob } from './jobs/rebuildLeaderboard.job'
 
@@ -20,6 +22,7 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(prismaPlugin)
   await app.register(redisPlugin)
   await app.register(jwtPlugin)
+  await app.register(chainPlugin)
   if (options?.withSocket !== false) {
     await app.register(socketPlugin)
   }
@@ -30,6 +33,7 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(packetRoutes)
   await app.register(inviteRoutes)
   await app.register(leaderboardRoutes)
+  await app.register(frameRoutes)
 
   if (options?.withJobs) {
     await startSyncPacketsJob(app)

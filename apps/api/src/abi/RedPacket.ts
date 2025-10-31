@@ -22,6 +22,21 @@ export const RedPacketAbi = [
       { name: 'remainingCount', type: 'uint32', indexed: false },
     ],
   },
+  {
+    type: 'event',
+    name: 'PacketVrfRequested',
+    inputs: [
+      { name: 'packetId', type: 'bytes32', indexed: true },
+      { name: 'requestId', type: 'uint256', indexed: true },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'PacketRandomReady',
+    inputs: [
+      { name: 'packetId', type: 'bytes32', indexed: true },
+    ],
+  },
 ] as const
 
 
