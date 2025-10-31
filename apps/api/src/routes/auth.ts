@@ -43,9 +43,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { token, user }
   })
 
-  app.get('/api/auth/me', { preHandler: [app.authenticate as any] }, async (req: any) => {
+  app.get(
+    '/api/auth/me',
+    { preHandler: (app as any).authenticate ? [app.authenticate as any] : undefined },
+    async (req: any) => {
     return app.prisma.user.findUnique({ where: { id: req.user.userId } })
-  })
+    }
+  )
 }
 
 export default plugin

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import request from 'supertest'
 import { buildApp } from '../../src/app'
 
 describe('Growth invite endpoints', () => {
@@ -25,17 +24,21 @@ describe('Growth invite endpoints', () => {
 
     const token = (app as any).jwt.sign({ userId: 'invitee', address: '0xaddr' })
 
-    const res1 = await request(app.server)
-      .post('/api/invite/accept')
-      .set('authorization', `Bearer ${token}`)
-      .send({ inviterCode: 'code123' })
-    expect(res1.status).toBe(200)
+    const res1 = await app.inject({
+      method: 'POST',
+      url: '/api/invite/accept',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { inviterCode: 'code123' },
+    })
+    expect(res1.statusCode).toBe(200)
 
-    const res2 = await request(app.server)
-      .get('/api/invite/stats')
-      .set('authorization', `Bearer ${token}`)
-    expect(res2.status).toBe(200)
-    expect(res2.body.total).toBeDefined()
+    const res2 = await app.inject({
+      method: 'GET',
+      url: '/api/invite/stats',
+      headers: { authorization: `Bearer ${token}` },
+    })
+    expect(res2.statusCode).toBe(200)
+    expect(res2.json().total).toBeDefined()
 
     await app.close()
   })

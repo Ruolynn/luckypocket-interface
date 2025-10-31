@@ -51,6 +51,7 @@ apps/web/.next/
 .storybook-out/
 playwright-report/
 **/test-results/
+**/.playwright/
 
 # Prisma
 apps/api/prisma/*.db
@@ -66,6 +67,8 @@ apps/api/prisma/*.db
 packages/contracts/out/
 packages/contracts/cache/
 forge-artifacts/
+packages/contracts/broadcast/
+packages/contracts/lib/
 
 # Misc
 **/*.tsbuildinfo

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import request from 'supertest'
 import { buildApp } from '../../src/app'
 
 class MockRedisLB {
@@ -13,11 +12,9 @@ describe('Leaderboard endpoint', () => {
     const app = await buildApp({ withJobs: false, withSocket: false })
     ;(app as any).redis = new MockRedisLB() as any
 
-    const res = await request(app.server)
-      .get('/api/leaderboard')
-      .query({ type: 'luck', range: 'week' })
-    expect(res.status).toBe(200)
-    expect(Array.isArray(res.body.top)).toBe(true)
+    const res = await app.inject({ method: 'GET', url: '/api/leaderboard?type=luck&range=week' })
+    expect(res.statusCode).toBe(200)
+    expect(Array.isArray(res.json().top)).toBe(true)
     await app.close()
   })
 })

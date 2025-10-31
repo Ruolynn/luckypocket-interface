@@ -1,4 +1,3 @@
-import request from 'supertest'
 import { buildApp } from '../../src/app'
 
 class MockRedis {
@@ -74,11 +73,11 @@ describe('Packets routes', () => {
 
     // create packet
     const idem = crypto.randomUUID()
-    const createRes = await request(app.server)
-      .post('/api/packets/create')
-      .set('authorization', `Bearer ${token}`)
-      .set('idempotency-key', idem)
-      .send({
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/packets/create',
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': idem },
+      payload: {
         packetId: '0xpacket',
         txHash: '0xtx',
         token: '0xusdc',
@@ -86,18 +85,20 @@ describe('Packets routes', () => {
         count: 10,
         isRandom: true,
         expireTime: new Date(Date.now() + 3600_000).toISOString(),
-      })
-    expect(createRes.status).toBe(200)
-    expect(createRes.body.packet.packetId).toBe('0xpacket')
+      },
+    })
+    expect(createRes.statusCode).toBe(200)
+    expect(createRes.json().packet.packetId).toBe('0xpacket')
 
     // claim packet
-    const claimRes = await request(app.server)
-      .post('/api/packets/claim')
-      .set('authorization', `Bearer ${token}`)
-      .set('idempotency-key', crypto.randomUUID())
-      .send({ packetId: '0xpacket' })
-    expect(claimRes.status).toBe(200)
-    expect(claimRes.body.claim).toBeDefined()
+    const claimRes = await app.inject({
+      method: 'POST',
+      url: '/api/packets/claim',
+      headers: { authorization: `Bearer ${token}`, 'idempotency-key': crypto.randomUUID() },
+      payload: { packetId: '0xpacket' },
+    })
+    expect(claimRes.statusCode).toBe(200)
+    expect(claimRes.json().claim).toBeDefined()
 
     await app.close()
   })

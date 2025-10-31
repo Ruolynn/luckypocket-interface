@@ -20,7 +20,10 @@ const claimSchema = z.object({
 })
 
 const plugin: FastifyPluginAsync = async (app) => {
-  app.post('/api/packets/create', { preHandler: [app.authenticate as any] }, async (req: any, reply) => {
+  app.post(
+    '/api/packets/create',
+    { preHandler: (app as any).authenticate ? [app.authenticate as any] : undefined },
+    async (req: any, reply) => {
     await ensureIdempotency(req, reply)
     if (reply.sent) return
     const input = createSchema.parse(req.body)
@@ -30,12 +33,16 @@ const plugin: FastifyPluginAsync = async (app) => {
       expireTime: new Date(input.expireTime),
     })
     return { packet }
-  })
+    }
+  )
 
-  app.post('/api/packets/claim', {
-    preHandler: [app.authenticate as any],
-    config: { rateLimit: { max: 10, timeWindow: '10s' } },
-  }, async (req: any, reply) => {
+  app.post(
+    '/api/packets/claim',
+    {
+      preHandler: (app as any).authenticate ? [app.authenticate as any] : undefined,
+      config: { rateLimit: { max: 10, timeWindow: '10s' } },
+    },
+    async (req: any, reply) => {
     await ensureIdempotency(req, reply)
     if (reply.sent) return
     const { packetId } = claimSchema.parse(req.body)
@@ -52,7 +59,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       return reply.code(status).send({ error: err })
     }
     return { claim: result.claim }
-  })
+    }
+  )
 
   app.get('/api/packets/:packetId', async (req, reply) => {
     const { packetId } = z.object({ packetId: z.string() }).parse(req.params)

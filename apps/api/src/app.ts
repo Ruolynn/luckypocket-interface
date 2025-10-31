@@ -1,6 +1,7 @@
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import rateLimit from '@fastify/rate-limit'
+import sentryPlugin from './plugins/sentry'
 import prismaPlugin from './plugins/prisma'
 import redisPlugin from './plugins/redis'
 import jwtPlugin from './plugins/jwt'
@@ -18,7 +19,14 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   const app = Fastify({ logger: false })
 
   await app.register(cors, { origin: true, credentials: true })
-  await app.register(rateLimit, { max: Number(process.env.RATE_LIMIT_MAX ?? 120), timeWindow: process.env.RATE_LIMIT_WINDOW_MS ?? '1 minute' })
+  await app.register(sentryPlugin)
+  // 在测试环境禁用 rateLimit，避免第三方插件导致 hook 异常
+  if (process.env.NODE_ENV !== 'test') {
+    await app.register(rateLimit, {
+      max: Number(process.env.RATE_LIMIT_MAX ?? 120),
+      timeWindow: (process.env.RATE_LIMIT_WINDOW_MS as any) ?? '1 minute',
+    })
+  }
   await app.register(prismaPlugin)
   await app.register(redisPlugin)
   await app.register(jwtPlugin)

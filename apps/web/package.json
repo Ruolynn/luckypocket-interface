@@ -7,7 +7,10 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install --with-deps"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^2.1.1",
@@ -24,6 +27,7 @@
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.18",
+    "@playwright/test": "^1.48.2",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.5",

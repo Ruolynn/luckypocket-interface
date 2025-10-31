@@ -116,113 +116,127 @@ export default function CreatePacketPage() {
 
   if (!address) {
     return (
-      <main style={{ padding: 24 }}>
-        <h2>创建红包</h2>
-        <p>请先连接钱包</p>
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">创建红包</h2>
+          <p className="text-gray-600">请先连接钱包</p>
+        </div>
       </main>
     )
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 600, margin: '0 auto' }}>
-      <h2>创建红包</h2>
-      
-      <div style={{ marginBottom: 16 }}>
-        <label>代币地址</label>
-        <input
-          value={tokenAddress}
-          onChange={(e) => setTokenAddress(e.target.value as `0x${string}`)}
-          style={{ width: '100%', padding: 8 }}
-          placeholder="0x..."
-        />
-        <small>当前代币: {symbol}，余额: {balance ? formatUnits(balance, Number(decimals)) : '0'}</small>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>金额 ({symbol})</label>
-        <input
-          type="number"
-          step="0.01"
-          value={amountInput}
-          onChange={(e) => setAmountInput(e.target.value)}
-          style={{ width: '100%', padding: 8 }}
-        />
-        {!hasBalance && <div style={{ color: 'red' }}>余额不足</div>}
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>份数 (1-200)</label>
-        <input
-          type="number"
-          min="1"
-          max="200"
-          value={count}
-          onChange={(e) => setCount(Math.min(200, Math.max(1, parseInt(e.target.value, 10) || 1)))}
-          style={{ width: '100%', padding: 8 }}
-        />
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>
-          <input
-            type="checkbox"
-            checked={isRandom}
-            onChange={(e) => setIsRandom(e.target.checked)}
-            style={{ marginRight: 8 }}
-          />
-          随机金额（拼手气）
-        </label>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>祝福语 (≤100字)</label>
-        <input
-          value={message}
-          onChange={(e) => setMessage(e.target.value.slice(0, 100))}
-          style={{ width: '100%', padding: 8 }}
-          maxLength={100}
-        />
-        <small>{message.length}/100</small>
-      </div>
-
-      <div style={{ marginBottom: 16 }}>
-        <label>有效期（小时，≤168小时）</label>
-        <input
-          type="number"
-          min="1"
-          max="168"
-          value={expireHours}
-          onChange={(e) => setExpireHours(Math.min(168, Math.max(1, parseInt(e.target.value, 10) || 24)))}
-          style={{ width: '100%', padding: 8 }}
-        />
-      </div>
-
-      {needsApproval && (
-        <button
-          onClick={handleApprove}
-          disabled={!hasBalance || isApproving || isApproved}
-          style={{ width: '100%', padding: 12, marginBottom: 12, backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: 4 }}
-        >
-          {isApproving ? '授权中...' : isApproved ? '已授权' : `授权 ${symbol}`}
-        </button>
-      )}
-
-      <button
-        onClick={handleCreate}
-        disabled={!hasBalance || needsApproval || isCreating || isWaitingCreate}
-        style={{ width: '100%', padding: 12, backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: 4 }}
-      >
-        {isCreating || isWaitingCreate ? '创建中...' : isCreateSuccess ? '创建成功！' : '创建红包'}
-      </button>
-
-      {createHash && (
-        <div style={{ marginTop: 16, padding: 12, backgroundColor: '#f0f0f0', borderRadius: 4 }}>
-          <p>交易哈希: {createHash}</p>
-          <Link href={`/packets/${createHash}`}>查看红包详情</Link>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container mx-auto px-4 py-16 max-w-2xl">
+        <div className="mb-6">
+          <Link href="/" className="text-primary-500 hover:text-primary-600">
+            ← 返回首页
+          </Link>
         </div>
-      )}
+
+        <h2 className="text-4xl font-bold text-gray-900 mb-8">创建红包</h2>
+        
+        <div className="bg-white rounded-xl shadow-lg p-8 space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">代币地址</label>
+            <input
+              value={tokenAddress}
+              onChange={(e) => setTokenAddress(e.target.value as `0x${string}`)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              placeholder="0x..."
+            />
+            <p className="mt-1 text-sm text-gray-500">
+              当前代币: {symbol}，余额: {balance ? formatUnits(balance, Number(decimals)) : '0'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">金额 ({symbol})</label>
+            <input
+              type="number"
+              step="0.01"
+              value={amountInput}
+              onChange={(e) => setAmountInput(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+            {!hasBalance && (
+              <p className="mt-1 text-sm text-red-500">余额不足</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">份数 (1-200)</label>
+            <input
+              type="number"
+              min="1"
+              max="200"
+              value={count}
+              onChange={(e) => setCount(Math.min(200, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={isRandom}
+              onChange={(e) => setIsRandom(e.target.checked)}
+              className="w-4 h-4 text-primary-500 rounded focus:ring-primary-500"
+            />
+            <label className="ml-2 text-sm text-gray-700">随机金额（拼手气）</label>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">祝福语 (≤100字)</label>
+            <input
+              value={message}
+              onChange={(e) => setMessage(e.target.value.slice(0, 100))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              maxLength={100}
+            />
+            <p className="mt-1 text-sm text-gray-500">{message.length}/100</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">有效期（小时，≤168小时）</label>
+            <input
+              type="number"
+              min="1"
+              max="168"
+              value={expireHours}
+              onChange={(e) => setExpireHours(Math.min(168, Math.max(1, parseInt(e.target.value, 10) || 24)))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            />
+          </div>
+
+          {needsApproval && (
+            <button
+              onClick={handleApprove}
+              disabled={!hasBalance || isApproving || isApproved}
+              className="w-full py-3 px-4 bg-success-500 hover:bg-success-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+            >
+              {isApproving ? '授权中...' : isApproved ? '已授权' : `授权 ${symbol}`}
+            </button>
+          )}
+
+          <button
+            onClick={handleCreate}
+            disabled={!hasBalance || needsApproval || isCreating || isWaitingCreate}
+            className="w-full py-3 px-4 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors"
+          >
+            {isCreating || isWaitingCreate ? '创建中...' : isCreateSuccess ? '创建成功！' : '创建红包'}
+          </button>
+
+          {createHash && (
+            <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-700">交易哈希: {createHash}</p>
+              <Link href={`/packets/${createHash}`} className="text-primary-500 hover:text-primary-600 text-sm">
+                查看红包详情
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     </main>
   )
 }
-
-

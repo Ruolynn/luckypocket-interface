@@ -74,6 +74,13 @@ forge build
 forge script script/Deploy.s.sol:DeployScript --rpc-url $ETHEREUM_RPC_URL --broadcast --verify
 ```
 
+**VRF 配置说明（随机红包）**:
+- 当前版本使用开发态占位实现（`fulfillRandomForPacket` 函数，Owner 手动回填）
+- 现已接入 Chainlink VRF（合约层），生产环境需要：
+  - 在目标链创建 VRF Subscription 并为其充值
+  - 部署时配置环境变量：`VRF_COORDINATOR`, `VRF_KEY_HASH`, `VRF_SUBSCRIPTION_ID`, `DEV_MODE`
+  - 合约在 `createPacket` 时请求随机，`fulfillRandomWords` 回填拆分数组；`DEV_MODE=true` 时仍支持 Owner 手动回填（开发态）
+
 ### Docker Compose
 
 ```bash
@@ -123,7 +130,16 @@ forge test
 - Solidity 0.8.20
 - Foundry
 - OpenZeppelin
+- Chainlink VRF（随机红包，当前为占位实现）
 
 ## 📝 License
 
 MIT
+
+## 📡 监控（Sentry）
+
+后端支持可选的 Sentry 接入：
+
+- 设置环境变量 `SENTRY_DSN`（可选 `SENTRY_TRACES_SAMPLE_RATE`，默认 0.1）
+- 未安装 `@sentry/node` 或未配置 DSN 时自动跳过，不影响构建和运行
+- 已接入全局错误捕获与基础请求标签，测试环境无需配置也可运行

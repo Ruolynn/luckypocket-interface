@@ -1,5 +1,4 @@
 // @ts-nocheck
-import request from 'supertest'
 import { buildApp } from '../../src/app'
 
 describe('Packets query endpoints', () => {
@@ -18,13 +17,13 @@ describe('Packets query endpoints', () => {
       },
     }
 
-    const res1 = await request(app.server).get(`/api/packets/${packet.packetId}`)
-    expect(res1.status).toBe(200)
-    expect(res1.body.packet.packetId).toBe(packet.packetId)
+    const res1 = await app.inject({ method: 'GET', url: `/api/packets/${packet.packetId}` })
+    expect(res1.statusCode).toBe(200)
+    expect(res1.json().packet.packetId).toBe(packet.packetId)
 
-    const res2 = await request(app.server).get(`/api/packets/${packet.packetId}/claims`)
-    expect(res2.status).toBe(200)
-    expect(Array.isArray(res2.body.claims)).toBe(true)
+    const res2 = await app.inject({ method: 'GET', url: `/api/packets/${packet.packetId}/claims` })
+    expect(res2.statusCode).toBe(200)
+    expect(Array.isArray(res2.json().claims)).toBe(true)
 
     await app.close()
   })
