@@ -8,24 +8,34 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  address       String    @unique
-  farcasterFid  Int?      @unique
+  id            String   @id @default(cuid())
+  address       String   @unique
+  farcasterFid  Int?     @unique
   farcasterName String?
-  email         String?   @unique
-  inviteCode    String    @unique @default(cuid())
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  email         String?  @unique
+  inviteCode    String   @unique @default(cuid())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  createdPackets Packet[]  @relation("CreatedPackets")
+  // RedPacket relations (legacy)
+  createdPackets Packet[] @relation("CreatedPackets")
   claims         Claim[]
-  inviter        User?     @relation("Invitations", fields: [inviterId], references: [id])
-  inviterId      String?
-  invited        User[]    @relation("Invitations")
-  invitations    Invitation[] @relation("Inviter")
+
+  // DeGift relations (new)
+  sentGifts     Gift[]      @relation("SentGifts")
+  receivedGifts Gift[]      @relation("ReceivedGifts")
+  giftClaims    GiftClaim[]
+
+  // Invitation relations
+  inviter             User?        @relation("Invitations", fields: [inviterId], references: [id])
+  inviterId           String?
+  invited             User[]       @relation("Invitations")
+  invitations         Invitation[] @relation("Inviter")
   invitationsReceived Invitation[] @relation("Invitee")
-  notifications  Notification[]
-  achievements   UserAchievement[]
+
+  // Other relations
+  notifications Notification[]
+  achievements  UserAchievement[]
 
   @@index([address])
   @@index([farcasterFid])
@@ -34,25 +44,25 @@ model User {
 }
 
 model Packet {
-  id              String    @id @default(cuid())
-  packetId        String    @unique
-  txHash          String    @unique
+  id              String   @id @default(cuid())
+  packetId        String   @unique
+  txHash          String   @unique
   creatorId       String
-  creator         User      @relation("CreatedPackets", fields: [creatorId], references: [id])
+  creator         User     @relation("CreatedPackets", fields: [creatorId], references: [id])
   token           String
-  tokenSymbol     String?   // 代币 symbol 快照（防止代币后续变更影响展示）
-  tokenDecimals   Int?      // 代币 decimals 快照
-  tokenName       String?   // 代币 name 快照
+  tokenSymbol     String? // 代币 symbol 快照（防止代币后续变更影响展示）
+  tokenDecimals   Int? // 代币 decimals 快照
+  tokenName       String? // 代币 name 快照
   totalAmount     String
   count           Int
   isRandom        Boolean
-  message         String?   @db.VarChar(200)
+  message         String?  @db.VarChar(200)
   remainingAmount String
   remainingCount  Int
   expireTime      DateTime
-  refunded        Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  refunded        Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   claims          Claim[]
 
   @@index([creatorId])
@@ -114,15 +124,118 @@ model Notification {
 }
 
 model UserAchievement {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  code        String
-  unlockedAt  DateTime  @default(now())
-  metadata    Json?
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  code       String
+  unlockedAt DateTime @default(now())
+  metadata   Json?
 
   @@unique([userId, code])
   @@index([userId])
   @@index([code])
   @@map("user_achievements")
+}
+
+// ============================================
+// DeGift Models
+// ============================================
+
+enum TokenType {
+  ETH
+  ERC20
+  ERC721
+  ERC1155
+}
+
+enum GiftStatus {
+  PENDING // Gift created but not claimed
+  CLAIMED // Gift has been claimed
+  REFUNDED // Gift has been refunded to sender
+  EXPIRED // Gift has expired
+}
+
+model Gift {
+  id           String @id @default(cuid())
+  giftId       String @unique // On-chain gift ID
+  chainId      Int // Chain ID (11155111 for Sepolia)
+  createTxHash String @unique // Transaction hash of gift creation
+
+  // Participants
+  senderId         String
+  sender           User    @relation("SentGifts", fields: [senderId], references: [id])
+  recipientAddress String // Recipient wallet address
+  recipientId      String? // Optional: User ID if recipient is registered
+  recipient        User?   @relation("ReceivedGifts", fields: [recipientId], references: [id])
+
+  // Token Information
+  tokenType TokenType // ETH, ERC20, ERC721, or ERC1155
+  token     String // Token contract address (address(0) for ETH)
+  tokenId   String    @default("0") // Token ID for NFTs, "0" for fungible tokens
+  amount    String // Amount in wei/smallest unit (BigInt as string)
+
+  // Token metadata snapshot (for display purposes)
+  tokenSymbol   String? // e.g., "ETH", "USDC"
+  tokenDecimals Int? // e.g., 18 for ETH
+  tokenName     String? // e.g., "Ethereum", "USD Coin"
+  tokenImage    String? // Token logo URL
+  nftImage      String? // NFT image URL (for ERC721/ERC1155)
+  nftName       String? // NFT name
+
+  // Gift Details
+  message String?    @db.VarChar(500) // Personal message/blessing
+  status  GiftStatus @default(PENDING)
+
+  // Timestamps
+  createdAt DateTime @default(now()) // When gift was created
+  expiresAt DateTime // When gift expires
+  updatedAt DateTime @updatedAt // Last update time
+
+  // Claim/Refund tracking
+  claimTxHash  String?   @unique // Transaction hash when claimed
+  claimedAt    DateTime? // When gift was claimed
+  refundTxHash String?   @unique // Transaction hash when refunded
+  refundedAt   DateTime? // When gift was refunded
+
+  // Relations
+  claims GiftClaim[]
+
+  // Indexes for query performance
+  @@index([giftId])
+  @@index([senderId])
+  @@index([recipientAddress])
+  @@index([recipientId])
+  @@index([status])
+  @@index([tokenType])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@index([chainId, giftId]) // Composite: multi-chain support
+  @@index([senderId, status]) // Composite: sender's gifts by status
+  @@index([recipientId, status]) // Composite: recipient's gifts by status
+  @@index([status, expiresAt]) // Composite: expired gift cleanup
+  @@map("gifts")
+}
+
+model GiftClaim {
+  id        String   @id @default(cuid())
+  giftId    String
+  gift      Gift     @relation(fields: [giftId], references: [id], onDelete: Cascade)
+  claimerId String
+  claimer   User     @relation(fields: [claimerId], references: [id])
+  amount    String // Amount claimed (same as gift amount)
+  txHash    String   @unique // Claim transaction hash
+  chainId   Int // Chain ID
+  claimedAt DateTime @default(now()) // When claimed
+
+  // Additional metadata
+  gasUsed  String? // Gas used in wei
+  gasPrice String? // Gas price in wei
+
+  @@unique([giftId, claimerId]) // One claim per gift per user
+  @@index([giftId])
+  @@index([claimerId])
+  @@index([claimedAt])
+  @@index([txHash])
+  @@index([chainId, txHash]) // Composite: multi-chain transaction lookup
+  @@map("gift_claims")
 }
