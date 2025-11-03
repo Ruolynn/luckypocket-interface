@@ -4,14 +4,14 @@
 
 ### Prerequisites
 - ✅ Foundry installed
-- ✅ Base Sepolia ETH (get from https://www.coinbase.com/faucets/base-ethereum-goerli-faucet)
+- ✅ Ethereum Sepolia ETH (get from https://sepoliafaucet.com/)
 - ✅ Private key ready
 
 ### Step 1: Setup (30 seconds)
 ```bash
 cd packages/contracts
 cp .env.example .env
-# Edit .env with your PRIVATE_KEY and BASE_SEPOLIA_RPC_URL
+# Edit .env with your PRIVATE_KEY and SEPOLIA_RPC_URL
 ```
 
 ### Step 2: Test (1 minute)
@@ -23,14 +23,14 @@ forge build && forge test
 ```bash
 # Dry run (optional)
 forge script script/DeployDeGift.s.sol:DeployDeGift \
-  --rpc-url $BASE_SEPOLIA_RPC_URL
+  --rpc-url $SEPOLIA_RPC_URL
 
 # Real deployment
 forge script script/DeployDeGift.s.sol:DeployDeGift \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   --broadcast \
   --verify \
-  --etherscan-api-key $BASESCAN_API_KEY \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
   -vvvv
 ```
 
@@ -40,7 +40,7 @@ Check the output for:
 DeGift deployed at: 0x...
 ```
 
-Visit: `https://sepolia.basescan.org/address/0x...`
+Visit: `https://sepolia.etherscan.io/address/0x...`
 
 ### Done! 🎉
 

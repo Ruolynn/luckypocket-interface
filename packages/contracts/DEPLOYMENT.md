@@ -2,27 +2,30 @@
 
 ## 📋 Overview
 
-This guide provides step-by-step instructions for deploying the DeGift smart contract to Base Sepolia testnet.
+This guide provides step-by-step instructions for deploying the DeGift smart contract to Ethereum Sepolia testnet.
 
 ## 🎯 Prerequisites
 
 Before deploying, ensure you have:
 
 - [ ] Foundry installed (`foundryup`)
-- [ ] Base Sepolia ETH for gas fees
+- [ ] Ethereum Sepolia ETH for gas fees
 - [ ] Private key with sufficient funds
-- [ ] (Optional) BaseScan API key for contract verification
+- [ ] (Optional) Etherscan API key for contract verification
 
-## 💰 Get Base Sepolia ETH
+## 💰 Get Ethereum Sepolia ETH
 
-### Option 1: Base Sepolia Faucet
-Visit the official Base faucet:
-- **URL**: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
-- **Alternative**: https://faucet.quicknode.com/base/sepolia
+### Option 1: Sepolia Faucet (Recommended)
+Visit any of these faucets:
+- **Alchemy**: https://sepoliafaucet.com/
+- **Infura**: https://www.infura.io/faucet/sepolia
+- **QuickNode**: https://faucet.quicknode.com/ethereum/sepolia
+- **Chainlink**: https://faucets.chain.link/sepolia
 
-### Option 2: Bridge from Ethereum Sepolia
-1. Get Sepolia ETH from https://sepoliafaucet.com/
-2. Bridge to Base Sepolia via https://bridge.base.org/
+### Option 2: Sepolia PoW Faucet
+If you have some computing power:
+- **URL**: https://sepolia-faucet.pk910.de/
+- Mine Sepolia ETH using your browser
 
 ## 🔧 Setup Environment
 
@@ -39,13 +42,14 @@ Edit `.env` with your values:
 
 ```bash
 # Required: Your deployer private key
-PRIVATE_KEY=0x... # Your private key with Base Sepolia ETH
+PRIVATE_KEY=0x... # Your private key with Ethereum Sepolia ETH
 
-# Required: Base Sepolia RPC URL
-BASE_SEPOLIA_RPC_URL=https://sepolia.base.org
+# Required: Ethereum Sepolia RPC URL
+SEPOLIA_RPC_URL=https://eth-sepolia.g.alchemy.com/v2/YOUR_API_KEY
+# Or use public RPC: https://rpc.sepolia.org
 
-# Optional: BaseScan API key for verification
-BASESCAN_API_KEY=YOUR_BASESCAN_API_KEY
+# Optional: Etherscan API key for verification
+ETHERSCAN_API_KEY=YOUR_ETHERSCAN_API_KEY
 ```
 
 **⚠️ SECURITY WARNING**:
@@ -83,7 +87,7 @@ Test the deployment script locally:
 
 ```bash
 forge script script/DeployDeGift.s.sol:DeployDeGift \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   -vvvv
 ```
 
@@ -92,13 +96,13 @@ This will show you:
 - Deployment address (predicted)
 - No actual transactions sent
 
-### Step 4: Deploy to Base Sepolia
+### Step 4: Deploy to Ethereum Sepolia
 
 **Option A: Deploy WITHOUT automatic verification**
 
 ```bash
 forge script script/DeployDeGift.s.sol:DeployDeGift \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   --broadcast \
   -vvvv
 ```
@@ -107,10 +111,10 @@ forge script script/DeployDeGift.s.sol:DeployDeGift \
 
 ```bash
 forge script script/DeployDeGift.s.sol:DeployDeGift \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   --broadcast \
   --verify \
-  --etherscan-api-key $BASESCAN_API_KEY \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
   -vvvv
 ```
 
@@ -133,9 +137,9 @@ Timestamp: 1699012345
 
 ## ✅ Verify Deployment
 
-### 1. Check Contract on BaseScan
+### 1. Check Contract on Etherscan
 
-Visit: `https://sepolia.basescan.org/address/YOUR_CONTRACT_ADDRESS`
+Visit: `https://sepolia.etherscan.io/address/YOUR_CONTRACT_ADDRESS`
 
 You should see:
 - Contract creation transaction
@@ -148,8 +152,8 @@ You should see:
 forge verify-contract \
   YOUR_CONTRACT_ADDRESS \
   src/DeGift.sol:DeGift \
-  --chain-id 84532 \
-  --etherscan-api-key $BASESCAN_API_KEY
+  --chain-id 11155111 \
+  --etherscan-api-key $ETHERSCAN_API_KEY
 ```
 
 ### 3. Test Basic Functionality
@@ -165,7 +169,7 @@ cast send YOUR_CONTRACT_ADDRESS \
   "Test Gift" \
   $(($(date +%s) + 86400)) \
   --value 0.1ether \
-  --rpc-url $BASE_SEPOLIA_RPC_URL \
+  --rpc-url $SEPOLIA_RPC_URL \
   --private-key $PRIVATE_KEY
 ```
 
@@ -175,7 +179,7 @@ cast send YOUR_CONTRACT_ADDRESS \
 cast call YOUR_CONTRACT_ADDRESS \
   "getGift(uint256)" \
   1 \
-  --rpc-url $BASE_SEPOLIA_RPC_URL
+  --rpc-url $SEPOLIA_RPC_URL
 ```
 
 #### Test 3: Check Total Gifts
@@ -183,12 +187,12 @@ cast call YOUR_CONTRACT_ADDRESS \
 ```bash
 cast call YOUR_CONTRACT_ADDRESS \
   "getTotalGifts()" \
-  --rpc-url $BASE_SEPOLIA_RPC_URL
+  --rpc-url $SEPOLIA_RPC_URL
 ```
 
 ## 📊 Gas Estimates
 
-Estimated gas costs on Base Sepolia:
+Estimated gas costs on Ethereum Sepolia:
 
 | Operation | Gas Used | Cost (at 0.01 gwei) |
 |-----------|----------|---------------------|
@@ -206,14 +210,14 @@ Estimated gas costs on Base Sepolia:
 
 ### Issue 1: "Insufficient funds"
 
-**Solution**: Get more Base Sepolia ETH from faucets.
+**Solution**: Get more Ethereum Sepolia ETH from faucets (see section above for faucet links).
 
 ### Issue 2: "Nonce too low"
 
 **Solution**:
 ```bash
 # Get current nonce
-cast nonce YOUR_ADDRESS --rpc-url $BASE_SEPOLIA_RPC_URL
+cast nonce YOUR_ADDRESS --rpc-url $SEPOLIA_RPC_URL
 
 # Add --nonce flag to command
 --nonce CORRECT_NONCE
@@ -223,20 +227,21 @@ cast nonce YOUR_ADDRESS --rpc-url $BASE_SEPOLIA_RPC_URL
 
 **Solution**:
 1. Verify manually using `forge verify-contract`
-2. Check BaseScan API key is correct
+2. Check Etherscan API key is correct
 3. Wait a few minutes and try again
 
 ### Issue 4: "RPC connection failed"
 
 **Solution**:
-1. Check RPC URL is correct: `https://sepolia.base.org`
+1. Check RPC URL is correct
 2. Try alternative RPC:
-   - Alchemy: `https://base-sepolia.g.alchemy.com/v2/YOUR_KEY`
-   - Infura: `https://base-sepolia.infura.io/v3/YOUR_KEY`
+   - Alchemy: `https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY`
+   - Infura: `https://sepolia.infura.io/v3/YOUR_KEY`
+   - Public: `https://rpc.sepolia.org`
 
 ## 📚 Contract Addresses
 
-### Base Sepolia Testnet
+### Ethereum Sepolia Testnet
 
 | Contract | Address | Status | Verified |
 |----------|---------|--------|----------|
@@ -246,11 +251,13 @@ cast nonce YOUR_ADDRESS --rpc-url $BASE_SEPOLIA_RPC_URL
 
 ## 🔗 Useful Links
 
-- **Base Sepolia Explorer**: https://sepolia.basescan.org/
-- **Base Sepolia RPC**: https://sepolia.base.org
-- **Base Documentation**: https://docs.base.org/
+- **Sepolia Explorer**: https://sepolia.etherscan.io/
+- **Sepolia Faucets**:
+  - https://sepoliafaucet.com/
+  - https://faucets.chain.link/sepolia
+  - https://www.infura.io/faucet/sepolia
+- **Ethereum Documentation**: https://ethereum.org/en/developers/docs/
 - **Foundry Book**: https://book.getfoundry.sh/
-- **Base Faucet**: https://www.coinbase.com/faucets/base-ethereum-goerli-faucet
 
 ## 🛡️ Security Checklist
 
@@ -276,7 +283,7 @@ Before deploying to mainnet:
    ```typescript
    // apps/web/src/config/contracts.ts
    export const DEGIFT_ADDRESS = '0x...'; // Your deployed address
-   export const DEGIFT_CHAIN_ID = 84532; // Base Sepolia
+   export const DEGIFT_CHAIN_ID = 11155111; // Ethereum Sepolia
    ```
 
 3. **Configure Backend**
