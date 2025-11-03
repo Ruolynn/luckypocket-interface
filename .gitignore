@@ -72,4 +72,32 @@ packages/contracts/broadcast/
 # Misc
 **/*.tsbuildinfo
 **/.tscache/
-.DS_Store
+temp.txt
+*.tmp
+如何确认Linear已接入.md
+
+# Claude AI assistant
+.claude/
+
+# Deployment & environment configs (keep .example)
+packages/contracts/deploy.env
+packages/contracts/deploy.log
+packages/contracts/*.log
+
+# API logs
+apps/api/*.log
+/tmp/hongbao-api.log
+
+# Linear integration docs (temporary)
+LINEAR-快速开始.md
+Linear集成完成报告.md
+
+# Test files (temporary debugging)
+apps/api/test-*.mjs
+apps/api/test-*.js
+
+# Contract verification artifacts (temporary)
+packages/contracts/verify*.sh
+packages/contracts/manual_verify_info.txt
+packages/contracts/metadata.json
+packages/contracts/VERIFY.md

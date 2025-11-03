@@ -1,7 +1,8 @@
 'use client'
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { useAccount, useSignMessage } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { useRedPacketContract, usePacketInfo } from '../../../hooks/useRedPacket'
 import { formatUnits } from 'viem'
 import io from 'socket.io-client'
@@ -17,10 +18,9 @@ async function api(url: string, init?: RequestInit) {
 export default function PacketDetailPage() {
   const params = useParams<{ packetId: string }>()
   const { address } = useAccount()
+  const { jwt, isAuthenticated, signIn, isAuthenticating } = useAuthContext()
   const [packet, setPacket] = useState<any>()
   const [claims, setClaims] = useState<any[]>([])
-  const [jwt, setJwt] = useState<string>('')
-  const { signMessageAsync } = useSignMessage()
 
   const packetId = params?.packetId as `0x${string}` | undefined
   const { data: chainInfo, refetch: refetchChainInfo } = usePacketInfo(packetId)
@@ -60,29 +60,15 @@ export default function PacketDetailPage() {
     }
   }, [params?.packetId, jwt, refetchChainInfo])
 
-  const siweLogin = async () => {
-    if (!address) return
-    const { nonce } = await api('/api/auth/siwe/nonce')
-    const domain = typeof window !== 'undefined' ? window.location.host : 'localhost'
-    const chainId = 11155111
-    const message = `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to HongBao dApp\n\nURI: https://${domain}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}`
-    const signature = await signMessageAsync({ message })
-    const { token } = await api('/api/auth/siwe/verify', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message, signature }),
-    })
-    setJwt(token)
-  }
-
   const handleClaim = async () => {
     if (!packetId) return
     if (!address) {
       alert('请先连接钱包')
       return
     }
-    if (!jwt) {
-      await siweLogin()
+    if (!isAuthenticated) {
+      alert('请先签名登录')
+      await signIn()
       return
     }
 

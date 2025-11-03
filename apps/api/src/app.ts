@@ -7,11 +7,15 @@ import redisPlugin from './plugins/redis'
 import jwtPlugin from './plugins/jwt'
 import socketPlugin from './plugins/socket'
 import chainPlugin from './plugins/chain'
+import invitePlugin from './plugins/invite'
+import achievementPlugin from './plugins/achievement'
 import authRoutes from './routes/auth'
 import packetRoutes from './routes/packets'
 import inviteRoutes from './routes/growth/invite'
 import leaderboardRoutes from './routes/growth/leaderboard'
+import achievementRoutes from './routes/growth/achievement'
 import frameRoutes from './routes/frame'
+import linearRoutes from './routes/linear'
 import { startSyncPacketsJob } from './jobs/syncPackets.job'
 import { startRebuildLeaderboardJob } from './jobs/rebuildLeaderboard.job'
 
@@ -31,6 +35,8 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(redisPlugin)
   await app.register(jwtPlugin)
   await app.register(chainPlugin)
+  await app.register(invitePlugin)
+  await app.register(achievementPlugin)
   if (options?.withSocket !== false) {
     await app.register(socketPlugin)
   }
@@ -41,7 +47,9 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(packetRoutes)
   await app.register(inviteRoutes)
   await app.register(leaderboardRoutes)
+  await app.register(achievementRoutes)
   await app.register(frameRoutes)
+  await app.register(linearRoutes)
 
   if (options?.withJobs) {
     await startSyncPacketsJob(app)

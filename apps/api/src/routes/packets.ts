@@ -1,8 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 import { ensureIdempotency } from '../utils/idempotency'
-import { createPacketRecord, claimPacketRecord } from '../services/packet.service'
+import { createPacketRecord, claimOnChainAndRecord } from '../services/packet.service'
 import { withLock } from '../utils/locks'
+import { verifyTransaction, getPacketInfoFromChain, getTokenMetadata } from '../services/contract.service'
+import { notifyPacketCreated } from '../services/notification.service'
 
 const createSchema = z.object({
   packetId: z.string(),
@@ -22,17 +24,88 @@ const claimSchema = z.object({
 const plugin: FastifyPluginAsync = async (app) => {
   app.post(
     '/api/packets/create',
-    { preHandler: (app as any).authenticate ? [app.authenticate as any] : undefined },
+    {
+      preHandler: (app as any).authenticate ? [app.authenticate as any] : undefined,
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    },
     async (req: any, reply) => {
     await ensureIdempotency(req, reply)
     if (reply.sent) return
     const input = createSchema.parse(req.body)
-    // 占位实现：仅入库记录（假设链上已确认）
-    const packet = await createPacketRecord(app.prisma, req.user.userId, {
-      ...input,
-      expireTime: new Date(input.expireTime),
-    })
-    return { packet }
+
+    try {
+      // 1. 验证链上交易
+      const txVerification = await verifyTransaction(input.txHash as `0x${string}`, input.packetId as `0x${string}`)
+      if (!txVerification.valid) {
+        return reply.code(400).send({ error: 'INVALID_TRANSACTION', details: txVerification.error })
+      }
+
+      // 2. 从链上读取红包信息，验证一致性
+      const chainInfoTuple = await getPacketInfoFromChain(input.packetId as `0x${string}`)
+      if (!chainInfoTuple) {
+        return reply.code(404).send({ error: 'PACKET_NOT_FOUND_ON_CHAIN' })
+      }
+
+      // 解构元组: [creator, token, totalAmount, count, remainingCount, expireTime, isRandom]
+      const [creator, token, totalAmount, count, remainingCount, expireTime, isRandom] = chainInfoTuple
+
+      // 验证交易中的事件数据与链上读取的数据一致性
+      if (txVerification.event) {
+        const eventData = txVerification.event as any
+        if (eventData.creator?.toLowerCase() !== creator?.toLowerCase()) {
+          return reply.code(400).send({ error: 'CREATOR_MISMATCH' })
+        }
+        if (eventData.token?.toLowerCase() !== token?.toLowerCase()) {
+          return reply.code(400).send({ error: 'TOKEN_MISMATCH' })
+        }
+        if (eventData.totalAmount?.toString() !== totalAmount?.toString()) {
+          return reply.code(400).send({ error: 'AMOUNT_MISMATCH' })
+        }
+        if (Number(eventData.count) !== Number(count)) {
+          return reply.code(400).send({ error: 'COUNT_MISMATCH' })
+        }
+        if (Boolean(eventData.isRandom) !== isRandom) {
+          return reply.code(400).send({ error: 'RANDOM_MISMATCH' })
+        }
+      }
+
+      // 3. 获取并存储代币元数据
+      const tokenMetadata = await getTokenMetadata(input.token as `0x${string}`)
+
+      // 4. 创建红包记录（包含代币快照）
+      const packet = await createPacketRecord(app.prisma, req.user.userId, {
+        ...input,
+        expireTime: new Date(input.expireTime),
+        tokenSymbol: tokenMetadata.symbol,
+        tokenDecimals: tokenMetadata.decimals,
+        tokenName: tokenMetadata.name,
+      })
+
+      // 5. 发送通知
+      await notifyPacketCreated(app.prisma, req.user.userId, {
+        packetId: input.packetId,
+        count: input.count,
+        totalAmount: input.totalAmount,
+      })
+
+      // 6. 创建成功后，尝试结算邀请奖励（异步，不阻塞响应）
+      app.inviteService.settleInviteReward(req.user.userId).catch((err) => {
+        app.log.error({ error: err, userId: req.user.userId }, 'Failed to settle invite reward after packet creation')
+      })
+
+      // 7. 检查并解锁成就（异步，不阻塞响应）
+      app.achievementService.checkAndUnlockAchievements(req.user.userId).catch((err) => {
+        app.log.error({ error: err, userId: req.user.userId }, 'Failed to check achievements after packet creation')
+      })
+
+      return { packet }
+    } catch (error: any) {
+      app.log.error({ err: error, input }, 'createPacket error')
+      if (error.message?.includes('Token metadata')) {
+        return reply.code(400).send({ error: 'INVALID_TOKEN', details: error.message })
+      }
+      return reply.code(500).send({ error: 'INTERNAL_ERROR', details: error.message })
+    }
     }
   )
 
@@ -48,7 +121,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const { packetId } = claimSchema.parse(req.body)
     const userId = (req as any).user?.userId || (req as any).user?.sub || 'unknown'
     const result = await withLock(app.redis, `claim:${packetId}:${userId}`, 10, async () => {
-      return await claimPacketRecord(app.prisma, packetId, userId)
+      return await claimOnChainAndRecord(app.prisma, packetId as `0x${string}`, userId)
     })
     if ('error' in (result as any)) {
       const err = (result as any).error as string
@@ -58,6 +131,17 @@ const plugin: FastifyPluginAsync = async (app) => {
       else if (err === 'PACKET_ALREADY_CLAIMED') status = 409
       return reply.code(status).send({ error: err })
     }
+
+    // 领取成功后，尝试结算邀请奖励（异步，不阻塞响应）
+    app.inviteService.settleInviteReward(userId).catch((err) => {
+      app.log.error({ error: err, userId }, 'Failed to settle invite reward after claim')
+    })
+
+    // 检查并解锁成就（异步，不阻塞响应）
+    app.achievementService.checkAndUnlockAchievements(userId).catch((err) => {
+      app.log.error({ error: err, userId }, 'Failed to check achievements after claim')
+    })
+
     return { claim: result.claim }
     }
   )

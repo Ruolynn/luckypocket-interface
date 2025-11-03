@@ -4,6 +4,7 @@ import { WagmiProvider, http } from 'wagmi'
 import { sepolia } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { getDefaultConfig, RainbowKitProvider, lightTheme } from '@rainbow-me/rainbowkit'
+import { AuthProvider } from '@/contexts/AuthContext'
 import '@rainbow-me/rainbowkit/styles.css'
 
 const projectId = 'hongbao-local'
@@ -21,7 +22,9 @@ export function Providers({ children }: { children: ReactNode }) {
     <WagmiProvider config={wagmiConfig}>
       <QueryClientProvider client={qc}>
         <RainbowKitProvider theme={lightTheme()}>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </RainbowKitProvider>
       </QueryClientProvider>
     </WagmiProvider>

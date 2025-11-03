@@ -1,27 +1,27 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { useAccount, useSignMessage } from 'wagmi'
+import { useAccount } from 'wagmi'
+import { useAuthContext } from '@/contexts/AuthContext'
 import { useRedPacketContract } from '../../../hooks/useRedPacket'
 import { useERC20, useTokenBalance, useTokenAllowance, useTokenDecimals, useTokenSymbol } from '../../../hooks/useERC20'
 import { parseUnits, formatUnits, keccak256, toHex } from 'viem'
 import { useWaitForTransactionReceipt, useWatchContractEvent } from 'wagmi'
 import { RED_PACKET_ABI } from '../../../constants/abi'
 import Link from 'next/link'
-import { api } from '../../../utils/api'
+import { apiWithAuth } from '../../../utils/api'
 
 const RED_PACKET_ADDRESS = (process.env.NEXT_PUBLIC_RED_PACKET_CONTRACT as `0x${string}`) || '0x0000000000000000000000000000000000000000'
 const SEPOLIA_USDC = '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8' // Sepolia USDC 测试币
 
 export default function CreatePacketPage() {
-  const { address } = useAccount()
+  const { address, isConnected } = useAccount()
+  const { jwt, isAuthenticated, signIn, isAuthenticating } = useAuthContext()
   const [tokenAddress, setTokenAddress] = useState<`0x${string}`>(SEPOLIA_USDC as `0x${string}`)
   const [amountInput, setAmountInput] = useState('1') // 用户输入的金额（如 "1" USDC）
   const [count, setCount] = useState(10)
   const [isRandom, setIsRandom] = useState(true)
   const [message, setMessage] = useState('新年快乐!')
   const [expireHours, setExpireHours] = useState(24)
-  const [jwt, setJwt] = useState<string>('')
-  const { signMessageAsync } = useSignMessage()
 
   // ERC20 hooks
   const { data: decimals = 6n } = useTokenDecimals(tokenAddress)
@@ -38,21 +38,6 @@ export default function CreatePacketPage() {
   const totalAmount = parseUnits(amountInput || '0', Number(decimals))
   const requiredAllowance = (totalAmount * 110n) / 100n
 
-  const siweLogin = async () => {
-    if (!address) return
-    const { nonce } = await api('/api/auth/siwe/nonce')
-    const domain = typeof window !== 'undefined' ? window.location.host : 'localhost'
-    const chainId = 11155111
-    const message = `${domain} wants you to sign in with your Ethereum account:\n${address}\n\nSign in to HongBao dApp\n\nURI: https://${domain}\nVersion: 1\nChain ID: ${chainId}\nNonce: ${nonce}\nIssued At: ${new Date().toISOString()}`
-    const signature = await signMessageAsync({ message })
-    const { token } = await api('/api/auth/siwe/verify', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ message, signature }),
-    })
-    setJwt(token)
-  }
-
   const handleApprove = async () => {
     await approve(RED_PACKET_ADDRESS, requiredAllowance)
   }
@@ -62,9 +47,10 @@ export default function CreatePacketPage() {
       alert('请先连接钱包')
       return
     }
-    if (!jwt) {
-      await siweLogin()
-      if (!jwt) return
+    if (!isAuthenticated) {
+      alert('请先签名登录')
+      await signIn()
+      return
     }
 
     // 检查授权
@@ -114,12 +100,32 @@ export default function CreatePacketPage() {
   const needsApproval = !allowance || allowance < totalAmount
   const hasBalance = balance && balance >= totalAmount
 
-  if (!address) {
+  if (!isConnected) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">创建红包</h2>
           <p className="text-gray-600">请先连接钱包</p>
+          <Link href="/" className="text-blue-600 hover:text-blue-700 underline mt-4 block">返回首页</Link>
+        </div>
+      </main>
+    )
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">创建红包</h2>
+          <p className="text-gray-600 mb-4">请先完成签名登录</p>
+          <button
+            onClick={signIn}
+            disabled={isAuthenticating}
+            className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-semibold py-2 px-6 rounded-lg shadow transition-colors"
+          >
+            {isAuthenticating ? '认证中...' : '签名登录'}
+          </button>
+          <Link href="/" className="text-blue-600 hover:text-blue-700 underline mt-4 block">返回首页</Link>
         </div>
       </main>
     )

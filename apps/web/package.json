@@ -18,16 +18,17 @@
     "next": "14.2.5",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "siwe": "^2.3.2",
     "socket.io-client": "^4.7.5",
     "viem": "^2.13.0",
     "wagmi": "^2.10.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.2",
     "@types/node": "^20.10.6",
     "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.18",
-    "@playwright/test": "^1.48.2",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.5",

@@ -1,8 +1,11 @@
 'use client'
-import { ConnectButton } from '@rainbow-me/rainbowkit'
 import Link from 'next/link'
+import { AuthButton } from '@/components/AuthButton'
+import { useAuthContext } from '@/contexts/AuthContext'
 
 export default function Home() {
+  const { isAuthenticated, user } = useAuthContext()
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-16 max-w-4xl">
@@ -14,10 +17,18 @@ export default function Home() {
             Base 链上的社交红包 dApp
           </p>
         </div>
-        
-        <div className="flex justify-center mb-12">
-          <ConnectButton />
+
+        <div className="flex justify-center mb-8">
+          <AuthButton />
         </div>
+
+        {isAuthenticated && user && (
+          <div className="text-center mb-8">
+            <p className="text-sm text-gray-600">
+              已登录: {user.address.slice(0, 6)}...{user.address.slice(-4)}
+            </p>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <Link

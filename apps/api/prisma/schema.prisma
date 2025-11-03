@@ -40,6 +40,9 @@ model Packet {
   creatorId       String
   creator         User      @relation("CreatedPackets", fields: [creatorId], references: [id])
   token           String
+  tokenSymbol     String?   // 代币 symbol 快照（防止代币后续变更影响展示）
+  tokenDecimals   Int?      // 代币 decimals 快照
+  tokenName       String?   // 代币 name 快照
   totalAmount     String
   count           Int
   isRandom        Boolean
