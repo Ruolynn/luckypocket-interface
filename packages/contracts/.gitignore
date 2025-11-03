@@ -2,3 +2,4 @@ cache/
 out/
 # Note: We want to track .sol files in src/ and test/
 # Only ignore generated or temporary .sol files if needed
+.env
