@@ -1,0 +1,53 @@
+{
+  "name": "teemi.ai",
+  "version": "0.3.0-beta",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    
+    "test": "pnpm test:unit && pnpm test:integration && pnpm test:contracts",
+    "test:ci": "pnpm test:contracts && pnpm test:unit && pnpm test:integration && pnpm test:e2e:ci",
+    
+    "test:contracts": "cd contracts && forge test",
+    "test:contracts:coverage": "cd contracts && forge coverage",
+    "test:contracts:gas": "cd contracts && forge snapshot",
+    
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest",
+    "test:unit:ui": "vitest --ui",
+    "test:unit:coverage": "vitest run --coverage",
+    
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:watch": "vitest --config vitest.integration.config.ts",
+    
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ci": "playwright test --reporter=html",
+    
+    "test:all": "pnpm test:contracts && pnpm test:unit && pnpm test:integration && pnpm test:e2e",
+    
+    "anvil": "anvil --port 8545 --chain-id 31337",
+    "anvil:fork": "anvil --fork-url https://sepolia.infura.io/v3/$INFURA_KEY",
+    
+    "deploy:local": "cd contracts && forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast",
+    "deploy:sepolia": "cd contracts && forge script script/Deploy.s.sol --rpc-url $SEPOLIA_RPC_URL --broadcast --verify",
+    
+    "setup:test": "pnpm install && cd contracts && forge install && cd .. && pnpm test:contracts && npx synpress install"
+  },
+  
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "@synthetixio/synpress": "^4.0.0",
+    "@testing-library/react": "^14.1.2",
+    "@testing-library/user-event": "^14.5.1",
+    "@vitest/ui": "^1.0.4",
+    "c8": "^8.0.1",
+    "viem": "^2.0.0",
+    "vitest": "^1.0.4",
+    
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  }
+}
