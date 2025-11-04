@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useAccount, useSignMessage, useDisconnect } from 'wagmi'
+import { useAccount, useSignMessage, useDisconnect, useChainId } from 'wagmi'
 import { SiweMessage } from 'siwe'
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
@@ -15,12 +15,14 @@ export function useAuth() {
   const { address, isConnected } = useAccount()
   const { signMessageAsync } = useSignMessage()
   const { disconnect } = useDisconnect()
+  const chainId = useChainId() // Fix: Get dynamic chain ID
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
   // Check authentication status on mount
+  // Fix: Check for browser environment to avoid SSR errors
   useEffect(() => {
-    const token = localStorage.getItem('jwt')
+    const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : null
     setIsAuthenticated(!!token)
   }, [])
 
@@ -37,13 +39,14 @@ export function useAuth() {
       const { nonce } = await api.auth.getNonce(address)
 
       // 2. Create SIWE message
+      // Fix: Use dynamic chain ID instead of hardcoded Sepolia
       const message = new SiweMessage({
         domain: window.location.host,
         address,
         statement: 'Sign in to DeGift',
         uri: window.location.origin,
         version: '1',
-        chainId: 11155111, // Sepolia
+        chainId, // Fix: Use current chain ID
         nonce,
       })
 
@@ -75,7 +78,10 @@ export function useAuth() {
   }
 
   const logout = () => {
-    localStorage.removeItem('jwt')
+    // Fix: Check for browser environment
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('jwt')
+    }
     setIsAuthenticated(false)
     disconnect()
     toast.success('Signed out')

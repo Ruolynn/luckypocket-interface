@@ -15,13 +15,15 @@ class APIClient {
   private async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
 
-    const headers = {
+    // Fix: Use Record<string, string> for headers type
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options?.headers,
+      ...(options?.headers as Record<string, string>),
     }
 
     // Add JWT token if available
-    const token = localStorage.getItem('jwt')
+    // Fix: Check for browser environment to avoid SSR errors
+    const token = typeof window !== 'undefined' ? localStorage.getItem('jwt') : null
     if (token) {
       headers['Authorization'] = `Bearer ${token}`
     }
