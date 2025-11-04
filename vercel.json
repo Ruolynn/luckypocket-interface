@@ -1,0 +1,7 @@
+{
+  "buildCommand": "pnpm install && pnpm --filter @luckypocket/web build",
+  "outputDirectory": "apps/web/.next",
+  "installCommand": "pnpm install",
+  "framework": "nextjs",
+  "rootDirectory": "apps/web"
+}
