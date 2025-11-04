@@ -1,17 +1,36 @@
-# --- Monorepo ignores (root) ---
+# ==============================================================================
+# LuckyPocket dApp - Professional .gitignore
+# ==============================================================================
 
-# Node & package managers
+# ------------------------------------------------------------------------------
+# Node.js & Package Managers
+# ------------------------------------------------------------------------------
 node_modules/
 **/node_modules/
 .pnpm-store/
 .pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
 yarn.lock
 package-lock.json
+.npm/
 
-# Environment & secrets (keep examples)
+# Ignore all node_modules (even if previously tracked)
+**/node_modules/
+node_modules/
+
+# ------------------------------------------------------------------------------
+# Environment Variables & Secrets
+# ------------------------------------------------------------------------------
+# Keep .env.example files for reference
 .env
 .env.*
 !.env.example
+!.env.*.example
 apps/*/.env
 apps/*/.env.*
 !apps/*/.env.example
@@ -19,85 +38,242 @@ packages/*/.env
 packages/*/.env.*
 !packages/*/.env.example
 
-# Logs & editor
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-.DS_Store
-*.swp
-.idea/
-.vscode/
+# Sensitive deployment configs
+packages/contracts/deploy.env
+*.env.local
+*.env.production
 
-# Build outputs
+# ------------------------------------------------------------------------------
+# Build Outputs & Cache
+# ------------------------------------------------------------------------------
 build/
 dist/
 **/build/
 **/dist/
-**/coverage/
+out/
+**/out/
+*.tsbuildinfo
+**/.tscache/
+**/*.tsbuildinfo
+
+# Coverage reports
 coverage/
+**/coverage/
+.nyc_output/
+**/.nyc_output/
 
-# Next.js
-apps/web/.next/
-**/.next/
+# ------------------------------------------------------------------------------
+# Next.js (Frontend)
+# ------------------------------------------------------------------------------
 .next/
+**/.next/
+apps/web/.next/
 .next/cache/
+.next/standalone/
+.next/static/
 
-# Vercel / deploy cache
+# Vercel deployment
 .vercel/
 
-# Storybook / Playwright (if added later)
-.storybook-out/
+# Turbopack cache
+.turbo/
+
+# ------------------------------------------------------------------------------
+# Testing & Development Tools
+# ------------------------------------------------------------------------------
+# Playwright
 playwright-report/
 **/test-results/
 **/.playwright/
+test-results/
 
+# Vitest
+vitest-report/
+
+# Storybook
+.storybook-out/
+storybook-static/
+
+# ------------------------------------------------------------------------------
+# Database & Cache
+# ------------------------------------------------------------------------------
 # Prisma
 apps/api/prisma/*.db
+apps/api/prisma/*.db-journal
+apps/api/prisma/migrations/*_dev*
 
-# Docker
-**/.docker/
-**/.dockerignore-local
+# Redis dumps
+*.rdb
+dump.rdb
 
-# Socket.IO ephemeral files (if any custom)
-**/tmp/
-
-# Foundry / Solidity
+# ------------------------------------------------------------------------------
+# Blockchain & Smart Contracts (Foundry)
+# ------------------------------------------------------------------------------
 packages/contracts/out/
 packages/contracts/cache/
-forge-artifacts/
 packages/contracts/broadcast/
-
-# Misc
-**/*.tsbuildinfo
-**/.tscache/
-temp.txt
-*.tmp
-如何确认Linear已接入.md
-
-# Claude AI assistant
-.claude/
-
-# Deployment & environment configs (keep .example)
-packages/contracts/deploy.env
-packages/contracts/deploy.log
 packages/contracts/*.log
+packages/contracts/deploy.log
+forge-artifacts/
+cache_forge/
+broadcast/
 
-# API logs
-apps/api/*.log
-/tmp/hongbao-api.log
-
-# Linear integration docs (temporary)
-LINEAR-快速开始.md
-Linear集成完成报告.md
-
-# Test files (temporary debugging)
-apps/api/test-*.mjs
-apps/api/test-*.js
-
-# Contract verification artifacts (temporary)
+# Contract verification artifacts
 packages/contracts/verify*.sh
 packages/contracts/manual_verify_info.txt
 packages/contracts/metadata.json
 packages/contracts/VERIFY.md
+
+# ------------------------------------------------------------------------------
+# Docker
+# ------------------------------------------------------------------------------
+**/.docker/
+**/.dockerignore-local
+docker-compose.override.yml
+
+# ------------------------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+apps/api/*.log
+/tmp/hongbao-api.log
+/tmp/luckypocket-api.log
+
+# ------------------------------------------------------------------------------
+# Operating System
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+
+# Linux
+*~
+
+# ------------------------------------------------------------------------------
+# IDE & Editors
+# ------------------------------------------------------------------------------
+# VS Code
+.vscode/
+!.vscode/settings.json.example
+!.vscode/extensions.json.example
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# ------------------------------------------------------------------------------
+# Temporary Files
+# ------------------------------------------------------------------------------
+tmp/
+**/tmp/
+temp/
+**/temp/
+*.tmp
+*.temp
+temp.txt
+
+# ------------------------------------------------------------------------------
+# AI & Development Tools
+# ------------------------------------------------------------------------------
+# Claude AI assistant
+.claude/
+.claude-cache/
+
+# Cursor AI
+.cursor/
+
+# GitHub Copilot
+.copilot/
+
+# ------------------------------------------------------------------------------
+# Project-Specific
+# ------------------------------------------------------------------------------
+# Archive directories (backup of old code)
+archive/
+**/archive/
+
+# Design reference files
+design-refs/
+**/design-refs/
+
+# Temporary documentation
+如何确认Linear已接入.md
+LINEAR-快速开始.md
+Linear集成完成报告.md
+
+# Temporary test files
+apps/api/test-*.mjs
+apps/api/test-*.js
+scripts/test-*.ts
+scripts/test-*.js
+
+# ------------------------------------------------------------------------------
+# Security & Sensitive Data
+# ------------------------------------------------------------------------------
+# Private keys & secrets
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+**/secrets/
+
+# SSL certificates
+*.crt
+*.cer
+*.ca-bundle
+*.p7b
+*.p7s
+
+# ------------------------------------------------------------------------------
+# Miscellaneous
+# ------------------------------------------------------------------------------
+# Socket.IO
+**/socket.io-client/
+
+# Turbo
+.turbo
+
+# Sentry
+.sentryclirc
+
+# Debug
+debug/
+**/debug/
+
+# ==============================================================================
+# End of .gitignore
+# ==============================================================================
+.env.mcp

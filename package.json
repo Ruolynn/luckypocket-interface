@@ -1,5 +1,5 @@
 {
-  "name": "hongbao-monorepo",
+  "name": "luckypocket-monorepo",
   "private": true,
   "packageManager": "pnpm@8.15.0",
   "workspaces": [
@@ -9,6 +9,11 @@
   "scripts": {
     "build": "pnpm -r build",
     "dev": "pnpm -r --parallel dev",
+    "dev:web": "pnpm --filter @luckypocket/web dev",
+    "dev:api": "pnpm --filter @luckypocket/api dev",
     "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "@mseep/linear-mcp": "^78.0.1"
   }
 }

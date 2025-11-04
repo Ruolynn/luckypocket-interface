@@ -1,46 +1,50 @@
-# 🧧 HongBao dApp
+# 🧧 LuckyPocket dApp
 
-Base 链上的社交红包 dApp - 支持固定金额和随机金额红包，集成 Farcaster Frames。
+Web3 Lucky Packet dApp on Base Chain - Supporting fixed and random amount packets with Farcaster Frames integration.
 
-## 📋 项目结构
+## 📋 Project Structure
 
 ```
-HongBao/
+luckyPocket/
 ├── apps/
-│   ├── api/          # Fastify 后端 API
-│   └── web/          # Next.js 前端应用
+│   ├── api/          # Fastify Backend API (Port 3001)
+│   └── web/          # Next.js Frontend Application (Port 9000)
 ├── packages/
-│   └── contracts/    # Solidity 智能合约（Foundry）
-└── docs/             # 项目文档
+│   ├── contracts/    # Solidity Smart Contracts (Foundry)
+│   ├── config/       # Shared Configurations (Tailwind, TypeScript)
+│   └── ui/           # Shared UI Component Library
+├── docs/             # Project Documentation
+├── archive/          # Legacy Code Backups
+└── design-refs/      # Design Reference Files
 ```
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 前置要求
+### Prerequisites
 
 - Node.js 20+
 - pnpm 8+
 - PostgreSQL 14+
 - Redis 7+
-- Foundry (for contracts)
+- Foundry (for smart contracts)
 
-### 环境配置
+### Environment Setup
 
-1. 复制环境变量示例文件：
+1. Copy environment variable templates:
 ```bash
-cp .env.example .env
-cp apps/web/.env.example apps/web/.env.local
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.local apps/web/.env.local
 ```
 
-2. 配置环境变量（见 `.env.example`）
+2. Configure your environment variables (see `.env.example` files)
 
-### 安装依赖
+### Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### 数据库初始化
+### Database Initialization
 
 ```bash
 cd apps/api
@@ -48,25 +52,35 @@ pnpm prisma migrate dev
 pnpm prisma generate
 ```
 
-### 启动开发服务
+### Start Development Services
 
-**后端 API：**
+**Option 1: Start all services (parallel)**
+```bash
+# From root directory
+pnpm dev
+```
+
+**Option 2: Start services individually**
+
+Backend API:
 ```bash
 cd apps/api
 pnpm dev
+# Running on http://localhost:3001
 ```
 
-**前端 Web：**
+Frontend Web:
 ```bash
 cd apps/web
 pnpm dev
+# Running on http://localhost:9000
 ```
 
-访问 http://localhost:3000
+Access the application at **http://localhost:9000**
 
-## 📦 部署
+## 📦 Deployment
 
-### 智能合约
+### Smart Contracts
 
 ```bash
 cd packages/contracts
@@ -74,12 +88,14 @@ forge build
 forge script script/Deploy.s.sol:DeployScript --rpc-url $ETHEREUM_RPC_URL --broadcast --verify
 ```
 
-**VRF 配置说明（随机红包）**:
-- 当前版本使用开发态占位实现（`fulfillRandomForPacket` 函数，Owner 手动回填）
-- 现已接入 Chainlink VRF（合约层），生产环境需要：
-  - 在目标链创建 VRF Subscription 并为其充值
-  - 部署时配置环境变量：`VRF_COORDINATOR`, `VRF_KEY_HASH`, `VRF_SUBSCRIPTION_ID`, `DEV_MODE`
-  - 合约在 `createPacket` 时请求随机，`fulfillRandomWords` 回填拆分数组；`DEV_MODE=true` 时仍支持 Owner 手动回填（开发态）
+**VRF Configuration (Random Packets)**:
+- Current version uses development placeholder (`fulfillRandomForPacket` function, Owner manually fills)
+- Production-ready Chainlink VRF integration available
+- For production deployment:
+  - Create VRF Subscription on target chain and fund it
+  - Configure environment variables: `VRF_COORDINATOR`, `VRF_KEY_HASH`, `VRF_SUBSCRIPTION_ID`, `DEV_MODE`
+  - Contract requests random number on `createPacket`, receives callback via `fulfillRandomWords`
+  - Set `DEV_MODE=true` to enable Owner manual fallback (development)
 
 ### Docker Compose
 
@@ -87,29 +103,61 @@ forge script script/Deploy.s.sol:DeployScript --rpc-url $ETHEREUM_RPC_URL --broa
 docker-compose up -d
 ```
 
-## 🧪 测试
+## 🧪 Testing
 
-**后端测试：**
+**Backend Tests:**
 ```bash
 cd apps/api
 pnpm test
 ```
 
-**合约测试：**
+**Smart Contract Tests:**
 ```bash
 cd packages/contracts
 forge test
 ```
 
-## 📚 文档
+**Frontend E2E Tests:**
+```bash
+cd apps/web
+pnpm test:e2e
+```
 
-- [PRD 文档](./docs/红包dApp-PRD.md)
-- [技术落地方案](./docs/技术落地方案-模块接口与伪代码.md)
-- [开发规范](./docs/开发规范-Cursor开发指南.md)
+## 📚 Documentation
 
-## 🛠️ 技术栈
+- [PRD Document](./docs/红包dApp-PRD.md)
+- [Technical Implementation](./docs/技术落地方案-模块接口与伪代码.md)
+- [Development Guidelines](./docs/开发规范-Cursor开发指南.md)
 
-### 后端
+## 🎨 Frontend Features
+
+### Completed Pages (12 Total)
+
+**P0 Core Features:**
+- ✅ Home Page (`/`)
+- ✅ Create Lucky Packet (`/create`)
+- ✅ Create Success Page (`/create/success`)
+- ✅ Packet Details & Claim (`/packet/[id]`)
+- ✅ User Dashboard (`/dashboard`)
+
+**P1 Growth Features:**
+- ✅ Leaderboards (`/leaderboards`)
+- ✅ Settings (`/settings`)
+- ✅ Notifications (`/notifications`)
+- ✅ Invite System (`/invite`)
+- ✅ Achievements (`/achievements`)
+- ✅ Lucky Packet Rain (`/rain`)
+
+### Design System
+- **Primary Color**: `#FF4545`
+- **Accent Color**: `#00B8D9`
+- **Font**: Plus Jakarta Sans
+- **Style**: Glassmorphism Design
+- **Responsive**: Mobile-first approach
+
+## 🛠️ Tech Stack
+
+### Backend
 - Fastify 4
 - Prisma ORM
 - PostgreSQL
@@ -118,28 +166,88 @@ forge test
 - SIWE (Sign-In with Ethereum)
 - Viem
 
-### 前端
-- Next.js 14
+### Frontend
+- Next.js 14 (App Router)
 - React 18
+- TypeScript
 - Wagmi v2
 - RainbowKit
+- TanStack Query
+- Zustand
 - Tailwind CSS
+- Framer Motion
 - Socket.IO Client
 
-### 合约
+### Smart Contracts
 - Solidity 0.8.20
 - Foundry
 - OpenZeppelin
-- Chainlink VRF（随机红包，当前为占位实现）
+- Chainlink VRF (Random packets)
 
-## 📝 License
+## 📡 Package Management
+
+This is a pnpm workspace monorepo. All packages use `@luckypocket` scope:
+
+- `@luckypocket/api` - Backend API application
+- `@luckypocket/web` - Frontend web application
+- `@luckypocket/config` - Shared configuration (Tailwind, TypeScript)
+- `@luckypocket/ui` - Shared UI component library
+
+## 🔧 Configuration
+
+### Frontend (apps/web)
+- **Port**: 9000
+- **API URL**: http://localhost:3001
+- **Mock Wallet Mode**: Enabled by default for development
+
+### Backend (apps/api)
+- **Port**: 3001
+- **Database**: PostgreSQL (localhost:5432)
+- **Redis**: localhost:6379
+
+## 📝 Development Notes
+
+### Mock Wallet Mode
+The frontend includes a mock wallet mode for development without connecting an actual wallet:
+- Set `NEXT_PUBLIC_MOCK_WALLET=true` in `apps/web/.env.local`
+- Useful for UI development and testing
+
+### API Integration
+- Frontend is configured to connect to backend at `http://localhost:3001`
+- WebSocket connection for real-time notifications
+- SIWE authentication for wallet login
+
+## 🔒 Security
+
+### Environment Variables
+- Never commit `.env` or `.env.local` files
+- Always use `.env.example` as templates
+- Store sensitive keys securely
+
+### Smart Contracts
+- Audited OpenZeppelin contracts
+- Comprehensive test coverage
+- Chainlink VRF for provably fair randomness
+
+## 📊 Monitoring (Optional)
+
+Backend supports optional Sentry integration:
+- Set `SENTRY_DSN` environment variable
+- Optional `SENTRY_TRACES_SAMPLE_RATE` (default: 0.1)
+- Safe to run without Sentry configuration
+
+## 🤝 Contributing
+
+1. Create a feature branch from `main`
+2. Follow existing code style and conventions
+3. Write tests for new features
+4. Update documentation as needed
+5. Submit a pull request
+
+## 📄 License
 
 MIT
 
-## 📡 监控（Sentry）
+---
 
-后端支持可选的 Sentry 接入：
-
-- 设置环境变量 `SENTRY_DSN`（可选 `SENTRY_TRACES_SAMPLE_RATE`，默认 0.1）
-- 未安装 `@sentry/node` 或未配置 DSN 时自动跳过，不影响构建和运行
-- 已接入全局错误捕获与基础请求标签，测试环境无需配置也可运行
+**Built with ❤️ by the LuckyPocket Team**
