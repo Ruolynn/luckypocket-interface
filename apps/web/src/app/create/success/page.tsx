@@ -3,10 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { MainLayout } from '@/components/MainLayout'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 export default function CreateSuccessPage() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const packetId = searchParams.get('id') || '0x1234567890abcdef1234567890abcdef12345678'
   const [qrModalOpen, setQrModalOpen] = useState(false)
