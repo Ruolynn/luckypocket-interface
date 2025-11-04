@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { MainLayout } from '@/components/MainLayout'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 
 interface ClaimRecord {
