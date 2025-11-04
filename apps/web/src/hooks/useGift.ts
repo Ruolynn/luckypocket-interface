@@ -88,6 +88,30 @@ export function useCanClaim(giftId: string | undefined) {
 }
 
 /**
+ * Create gift mutation
+ */
+export function useCreateGift() {
+  const queryClient = useQueryClient()
+  const addGift = useGiftStore((s) => s.addGift)
+
+  return useMutation({
+    mutationFn: (data: Parameters<typeof giftsAPI.createGift>[0]) =>
+      giftsAPI.createGift(data),
+    onSuccess: (result) => {
+      toast.success('Gift created successfully!')
+
+      // Invalidate queries to refetch
+      queryClient.invalidateQueries({ queryKey: ['gifts'] })
+      queryClient.invalidateQueries({ queryKey: ['user-sent-gifts'] })
+      queryClient.invalidateQueries({ queryKey: ['stats'] })
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to create gift: ${error.message}`)
+    },
+  })
+}
+
+/**
  * Record gift claim mutation
  */
 export function useRecordClaim() {

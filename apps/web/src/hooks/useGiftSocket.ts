@@ -26,9 +26,12 @@ export function useGiftSocket(address?: string) {
       return
     }
 
+    // Fix: Store socket reference outside Promise for proper cleanup
+    let socket: any = null
+
     // Dynamically import socket.io-client only on client side
     import('socket.io-client').then(({ io }) => {
-      const socket = io(SOCKET_URL, {
+      socket = io(SOCKET_URL, {
         transports: ['websocket', 'polling'],
         auth: {
           token: localStorage.getItem('jwt'),
@@ -97,11 +100,14 @@ export function useGiftSocket(address?: string) {
         queryClient.invalidateQueries({ queryKey: ['gift', data.giftId] })
         queryClient.invalidateQueries({ queryKey: ['gifts'] })
       })
+    })
 
-      // Cleanup
-      return () => {
+    // Fix: Cleanup at useEffect level, not inside Promise
+    return () => {
+      if (socket) {
+        console.log('🔌 Disconnecting WebSocket...')
         socket.disconnect()
       }
-    })
+    }
   }, [address, addGift, updateGift, queryClient])
 }

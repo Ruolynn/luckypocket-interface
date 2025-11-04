@@ -145,6 +145,28 @@ class GiftsAPI {
   }
 
   /**
+   * Create a new gift
+   */
+  async createGift(data: {
+    recipientAddress: string
+    tokenType: 'ETH' | 'ERC20' | 'ERC721' | 'ERC1155'
+    tokenAddress?: string
+    tokenId?: string
+    amount: string
+    daysUntilExpiry: number
+    message?: string
+  }): Promise<{
+    success: boolean
+    giftId: string
+    txHash: string
+  }> {
+    return this.request('/api/v1/gifts', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    })
+  }
+
+  /**
    * Check if user can claim a gift
    */
   async canClaim(giftId: string): Promise<{ canClaim: boolean; reason?: string }> {
