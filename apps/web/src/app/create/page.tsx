@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { MainLayout } from '@/components/MainLayout'
-import Link from 'next/link'
 
 type PacketType = 'fixed' | 'random'
 type TokenType = 'ETH' | 'USDC' | 'USDT' | 'custom'
