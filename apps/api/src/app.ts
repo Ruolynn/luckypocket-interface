@@ -11,6 +11,8 @@ import invitePlugin from './plugins/invite'
 import achievementPlugin from './plugins/achievement'
 import authRoutes from './routes/auth'
 import giftsRoutes from './routes/gifts'
+import usersRoutes from './routes/users'
+import statsRoutes from './routes/stats'
 import inviteRoutes from './routes/growth/invite'
 import leaderboardRoutes from './routes/growth/leaderboard'
 import achievementRoutes from './routes/growth/achievement'
@@ -45,6 +47,8 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
 
   await app.register(authRoutes)
   await app.register(giftsRoutes)
+  await app.register(usersRoutes)
+  await app.register(statsRoutes)
   await app.register(inviteRoutes)
   await app.register(leaderboardRoutes)
   await app.register(achievementRoutes)

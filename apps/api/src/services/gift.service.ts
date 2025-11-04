@@ -32,6 +32,20 @@ export interface ClaimGiftParams {
   claimerAddress: string
 }
 
+export interface GetUserGiftsParams {
+  page?: number
+  limit?: number
+  status?: 'PENDING' | 'CLAIMED' | 'REFUNDED' | 'EXPIRED'
+  sortBy?: 'createdAt' | 'expiresAt'
+  order?: 'asc' | 'desc'
+}
+
+export interface RecordClaimParams {
+  txHash: string
+  gasUsed?: string
+  gasPrice?: string
+}
+
 export class GiftService {
   constructor(private prisma: PrismaClient) {}
 
@@ -371,5 +385,291 @@ export class GiftService {
     })
 
     return result.count
+  }
+
+  /**
+   * Get gifts sent by user
+   */
+  async getUserSentGifts(address: string, params: GetUserGiftsParams = {}) {
+    const { page = 1, limit = 20, status, sortBy = 'createdAt', order = 'desc' } = params
+
+    // Find user by address
+    const user = await this.prisma.user.findUnique({
+      where: { address: address.toLowerCase() },
+    })
+
+    if (!user) {
+      return {
+        data: [],
+        pagination: {
+          page,
+          limit,
+          total: 0,
+          hasMore: false,
+        },
+      }
+    }
+
+    // Build where clause
+    const where: any = {
+      senderId: user.id,
+    }
+
+    if (status) {
+      where.status = status
+    }
+
+    // Calculate pagination
+    const offset = (page - 1) * limit
+
+    // Query gifts
+    const [gifts, total] = await Promise.all([
+      this.prisma.gift.findMany({
+        where,
+        include: {
+          recipient: {
+            select: {
+              id: true,
+              address: true,
+              farcasterName: true,
+              farcasterFid: true,
+            },
+          },
+        },
+        orderBy: { [sortBy]: order },
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.gift.count({ where }),
+    ])
+
+    return {
+      data: gifts,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: offset + gifts.length < total,
+      },
+    }
+  }
+
+  /**
+   * Get gifts received by user
+   */
+  async getUserReceivedGifts(address: string, params: GetUserGiftsParams = {}) {
+    const { page = 1, limit = 20, status, sortBy = 'createdAt', order = 'desc' } = params
+
+    // Build where clause
+    const where: any = {
+      recipientAddress: address.toLowerCase(),
+    }
+
+    if (status) {
+      where.status = status
+    }
+
+    // Calculate pagination
+    const offset = (page - 1) * limit
+
+    // Query gifts
+    const [gifts, total] = await Promise.all([
+      this.prisma.gift.findMany({
+        where,
+        include: {
+          sender: {
+            select: {
+              id: true,
+              address: true,
+              farcasterName: true,
+              farcasterFid: true,
+            },
+          },
+        },
+        orderBy: { [sortBy]: order },
+        skip: offset,
+        take: limit,
+      }),
+      this.prisma.gift.count({ where }),
+    ])
+
+    return {
+      data: gifts,
+      pagination: {
+        page,
+        limit,
+        total,
+        hasMore: offset + gifts.length < total,
+      },
+    }
+  }
+
+  /**
+   * Record gift claim
+   */
+  async recordClaim(giftId: string, userId: string, claimData: RecordClaimParams) {
+    const { txHash, gasUsed, gasPrice } = claimData
+
+    // Verify gift exists
+    const gift = await this.prisma.gift.findUnique({
+      where: { giftId },
+    })
+
+    if (!gift) {
+      throw new Error('Gift not found')
+    }
+
+    // Verify user exists
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    })
+
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    // Check if user is recipient
+    if (gift.recipientAddress.toLowerCase() !== user.address.toLowerCase()) {
+      throw new Error('User is not the recipient of this gift')
+    }
+
+    // Check if gift is already claimed
+    if (gift.status === 'CLAIMED') {
+      throw new Error('Gift already claimed')
+    }
+
+    // Check if gift is refunded
+    if (gift.status === 'REFUNDED') {
+      throw new Error('Gift was refunded')
+    }
+
+    // Check if gift is expired
+    if (gift.status === 'EXPIRED' || gift.expiresAt < new Date()) {
+      throw new Error('Gift has expired')
+    }
+
+    // Update gift and create claim record in transaction
+    const now = new Date()
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      // Update gift status
+      const updatedGift = await tx.gift.update({
+        where: { id: gift.id },
+        data: {
+          status: 'CLAIMED',
+          claimedAt: now,
+          recipientId: user.id,
+        },
+      })
+
+      // Create claim record
+      const claim = await tx.giftClaim.create({
+        data: {
+          giftId: gift.id,
+          claimerId: user.id,
+          amount: gift.amount,
+          txHash,
+          chainId: gift.chainId,
+          gasUsed: gasUsed || '0',
+          gasPrice: gasPrice || '0',
+          claimedAt: now,
+        },
+      })
+
+      return { gift: updatedGift, claim }
+    })
+
+    return {
+      success: true,
+      data: {
+        giftId: result.gift.giftId,
+        status: result.gift.status,
+        claimedAt: result.gift.claimedAt,
+        claimTxHash: txHash,
+      },
+    }
+  }
+
+  /**
+   * Get global statistics
+   */
+  async getGlobalStats() {
+    // Get gift counts by status
+    const [totalGifts, statusCounts, totalUsers, stats24h] = await Promise.all([
+      // Total gifts
+      this.prisma.gift.count(),
+
+      // Status counts
+      this.prisma.gift.groupBy({
+        by: ['status'],
+        _count: {
+          status: true,
+        },
+      }),
+
+      // Total users
+      this.prisma.user.count(),
+
+      // 24h stats
+      (async () => {
+        const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+        const [giftsCreated, giftsClaimed] = await Promise.all([
+          this.prisma.gift.count({
+            where: {
+              createdAt: {
+                gte: yesterday,
+              },
+            },
+          }),
+          this.prisma.gift.count({
+            where: {
+              claimedAt: {
+                gte: yesterday,
+              },
+            },
+          }),
+        ])
+
+        return { giftsCreated, giftsClaimed }
+      })(),
+    ])
+
+    // Parse status counts
+    const statusMap: Record<string, number> = {}
+    for (const item of statusCounts) {
+      statusMap[item.status] = item._count.status
+    }
+
+    // Calculate total ETH value (only for ETH gifts)
+    const ethGifts = await this.prisma.gift.findMany({
+      where: {
+        tokenType: 'ETH',
+      },
+      select: {
+        amount: true,
+      },
+    })
+
+    let totalValueWei = BigInt(0)
+    for (const gift of ethGifts) {
+      totalValueWei += BigInt(gift.amount)
+    }
+
+    // Convert to ETH (18 decimals)
+    const totalValueETH = Number(totalValueWei) / 1e18
+
+    return {
+      data: {
+        totalGifts,
+        totalClaimed: statusMap['CLAIMED'] || 0,
+        totalRefunded: statusMap['REFUNDED'] || 0,
+        totalPending: statusMap['PENDING'] || 0,
+        totalExpired: statusMap['EXPIRED'] || 0,
+        totalValueETH: totalValueETH.toFixed(4),
+        totalUsers,
+        stats24h,
+      },
+    }
   }
 }

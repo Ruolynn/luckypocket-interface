@@ -378,6 +378,141 @@ const plugin: FastifyPluginAsync = async (app) => {
       }
     }
   )
+
+  /**
+   * POST /api/v1/gifts/:giftId/claim
+   * Record gift claim
+   * Requires authentication
+   */
+  const ClaimGiftSchema = z.object({
+    txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid transaction hash'),
+    gasUsed: z.string().regex(/^\d+$/, 'Invalid gasUsed').optional(),
+    gasPrice: z.string().regex(/^\d+$/, 'Invalid gasPrice').optional(),
+  })
+
+  app.post(
+    '/api/v1/gifts/:giftId/claim',
+    {
+      preHandler: siweAuthMiddleware,
+      schema: {
+        description: 'Record gift claim',
+        tags: ['gifts'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          properties: {
+            giftId: { type: 'string' },
+          },
+        },
+        body: {
+          type: 'object',
+          required: ['txHash'],
+          properties: {
+            txHash: { type: 'string' },
+            gasUsed: { type: 'string' },
+            gasPrice: { type: 'string' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              data: {
+                type: 'object',
+                properties: {
+                  giftId: { type: 'string' },
+                  status: { type: 'string' },
+                  claimedAt: { type: 'string' },
+                  claimTxHash: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.code(401).send({
+            error: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          })
+        }
+
+        const { giftId } = request.params as { giftId: string }
+
+        // Validate body
+        const body = ClaimGiftSchema.parse(request.body)
+
+        // Record claim
+        const result = await giftService.recordClaim(giftId, request.user.userId, body)
+
+        return reply.code(200).send(result)
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            error: 'VALIDATION_ERROR',
+            message: 'Invalid request parameters',
+            details: error.errors,
+          })
+        }
+
+        app.log.error({ error }, 'Failed to record claim')
+
+        // Handle specific errors
+        const errorMessage = error.message || 'Unknown error'
+
+        if (errorMessage === 'Gift not found') {
+          return reply.code(404).send({
+            error: 'NOT_FOUND',
+            message: 'Gift not found',
+          })
+        }
+
+        if (errorMessage === 'User not found') {
+          return reply.code(404).send({
+            error: 'NOT_FOUND',
+            message: 'User not found',
+          })
+        }
+
+        if (errorMessage === 'User is not the recipient of this gift') {
+          return reply.code(403).send({
+            error: 'FORBIDDEN',
+            message: 'You are not the recipient of this gift',
+          })
+        }
+
+        if (errorMessage === 'Gift already claimed') {
+          return reply.code(400).send({
+            error: 'ALREADY_CLAIMED',
+            message: 'Gift has already been claimed',
+          })
+        }
+
+        if (errorMessage === 'Gift was refunded') {
+          return reply.code(400).send({
+            error: 'REFUNDED',
+            message: 'Gift was refunded',
+          })
+        }
+
+        if (errorMessage === 'Gift has expired') {
+          return reply.code(400).send({
+            error: 'EXPIRED',
+            message: 'Gift has expired',
+          })
+        }
+
+        return reply.code(500).send({
+          error: 'INTERNAL_ERROR',
+          message: 'Failed to record claim',
+        })
+      }
+    }
+  )
 }
 
 export default plugin
