@@ -128,13 +128,11 @@ export default function NotificationsPage() {
             </div>
           ) : (
             filteredNotifications.map((notification) => {
-              const NotificationContent = notification.link ? Link : 'div'
-              const contentProps = notification.link ? { href: notification.link } : {}
-
-              return (
-                <NotificationContent
-                  key={notification.id}
-                  {...contentProps}
+              if (notification.link) {
+                return (
+                  <Link
+                    key={notification.id}
+                    href={notification.link}
                   className={`flex items-start gap-3 xs:gap-4 bg-white rounded-xl p-3 xs:p-4 border border-gray-200 hover:shadow-sm transition-all ${
                     !notification.read ? 'bg-primary/5 border-primary/20' : ''
                   }`}
@@ -172,8 +170,52 @@ export default function NotificationsPage() {
                       {formatTime(notification.timestamp)}
                     </p>
                   </div>
-                </NotificationContent>
+                </Link>
               )
+              } else {
+                return (
+                  <div
+                    key={notification.id}
+                    className={`flex items-start gap-3 xs:gap-4 bg-white rounded-xl p-3 xs:p-4 border border-gray-200 hover:shadow-sm transition-all ${
+                      !notification.read ? 'bg-primary/5 border-primary/20' : ''
+                    }`}
+                  >
+                    <div
+                      className={`flex items-center justify-center rounded-lg size-10 xs:size-12 shrink-0 ${
+                        notification.type === 'claim'
+                          ? 'bg-green-500/10 text-green-600'
+                          : notification.type === 'created'
+                            ? 'bg-blue-500/10 text-blue-600'
+                            : notification.type === 'reward'
+                              ? 'bg-yellow-500/10 text-yellow-600'
+                              : 'bg-gray-500/10 text-gray-600'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-xl xs:text-2xl">
+                        {getNotificationIcon(notification.type)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm xs:text-base font-bold text-text-primary-light mb-1">
+                            {notification.title}
+                          </p>
+                          <p className="text-xs xs:text-sm text-text-secondary-light line-clamp-2">
+                            {notification.message}
+                          </p>
+                        </div>
+                        {!notification.read && (
+                          <div className="size-2 bg-primary rounded-full shrink-0 mt-1"></div>
+                        )}
+                      </div>
+                      <p className="text-xs text-text-secondary-light mt-2">
+                        {formatTime(notification.timestamp)}
+                      </p>
+                    </div>
+                  </div>
+                )
+              }
             })
           )}
         </div>
