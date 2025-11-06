@@ -1,0 +1,49 @@
+name: Linear Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: "Run --check to list teams"
+        required: false
+        default: "true"
+      team_key:
+        description: "LINEAR_TEAM_KEY (e.g., ENG)"
+        required: false
+      team_id:
+        description: "LINEAR_TEAM_ID (UUID)"
+        required: false
+      project_id:
+        description: "LINEAR_PROJECT_ID (optional)"
+        required: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check teams (optional)
+        if: ${{ inputs.check_only == 'true' }}
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          node apps/api/scripts/linear-sync.cjs --check
+
+      - name: Sync tasks
+        if: ${{ inputs.check_only != 'true' }}
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_KEY: ${{ inputs.team_key }}
+          LINEAR_TEAM_ID: ${{ inputs.team_id }}
+          LINEAR_PROJECT_ID: ${{ inputs.project_id }}
+        run: |
+          node apps/api/scripts/linear-sync.cjs apps/api/scripts/tasks.linear.json
+
+
