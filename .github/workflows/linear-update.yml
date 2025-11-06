@@ -30,5 +30,8 @@ jobs:
           LINEAR_UPDATES: ${{ inputs.updates }}
           NODE_TLS_REJECT_UNAUTHORIZED: "0"
         run: |
+          echo "Updating Linear issues..."
+          echo "Team: ${{ inputs.team_key }}"
+          echo "Updates: ${{ inputs.updates }}"
           node apps/api/scripts/linear-update.cjs
 

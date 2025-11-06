@@ -50,12 +50,12 @@ async function getTeamAndStates(teamKey) {
   throw new Error('Could not retrieve workflow states. Please check Linear API permissions.')
 }
 
-async function getIssueId(identifier, teamKey) {
-  // Fallback: query all team issues and filter
-  const q2 = `query($teamKey:String!){ team(key:$teamKey){ issues(first:100){ nodes{ id identifier } } } }`
+async function getIssueId(identifier, teamId) {
+  // Query team issues by team ID
+  const q = `query($teamId:String!){ team(id:$teamId){ issues(first:100){ nodes{ id identifier } } } }`
   try {
-    const d2 = await gql(q2, { teamKey })
-    const node = d2.team?.issues?.nodes?.find((n) => n.identifier === identifier)
+    const d = await gql(q, { teamId })
+    const node = d.team?.issues?.nodes?.find((n) => n.identifier === identifier)
     if (node) return node.id
   } catch (e) {
     console.warn(`Failed to query team issues: ${e.message}`)
@@ -78,10 +78,11 @@ async function main() {
   }
 
   console.log(`Getting team and states for ${TEAM_KEY}...`)
-  let states, stateByName
+  let states, stateByName, teamId
   try {
     const result = await getTeamAndStates(TEAM_KEY)
     states = result.states
+    teamId = result.teamId
     stateByName = new Map(states.map((s) => [s.name.toLowerCase(), s.id]))
     console.log(`Found ${states.length} states: ${states.map((s) => s.name).join(', ')}`)
   } catch (e) {
@@ -110,7 +111,7 @@ async function main() {
     }
 
     console.log(`Looking up issue: ${identifier}...`)
-    const issueId = await getIssueId(identifier.trim(), TEAM_KEY)
+    const issueId = await getIssueId(identifier.trim(), teamId)
     if (!issueId) {
       console.error(`Issue not found: ${identifier}`)
       failCount++
