@@ -1,36 +1,63 @@
 'use client'
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { MainLayout } from '@/components/MainLayout'
+import { apiClient } from '@/lib/api'
+import type { LeaderboardEntry } from '@/lib/types'
 
-type BoardType = 'luckiest' | 'generous' | 'active' | 'channel'
+type BoardType = 'luck' | 'generous' | 'active' | 'channel'
 type TimeFilter = '24h' | '7d' | '30d' | 'all'
 
-interface Leader {
-  rank: number
-  address: string
-  avatar: string
-  value: string
-  maxClaim?: string
-}
-
 export default function LeaderboardsPage() {
-  const [boardType, setBoardType] = useState<BoardType>('luckiest')
+  const [boardType, setBoardType] = useState<BoardType>('luck')
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('7d')
   const [search, setSearch] = useState('')
 
-  const leaders: Leader[] = [
-    { rank: 1, address: 'vitalik.eth', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBxGJzQsN_ZBFBL-UAChcD9nSKiRLFjqfPmLAnr2sqZk1bULl7APmlKtj-CPXX9J0MeujXagGRXhr8hwNnRUe2_zrUYN78ji4jcVjU7_ZzF68AEmLCKPJQckUtvTWPl2l6xEtN46df7msTj6LvPpe_c1-9mTK8yezZCVS1Q1ljTZpK48vVVv2eJEywm6sXLtofC6nKzTpMqskBG_523RyaqLOzRfDeLpHLzslrfkkjv_bEokpjYi9wK7SHnEZALbiDiQjF5kXxIRSnY', value: '2.5 ETH', maxClaim: '2.5 ETH' },
-    { rank: 2, address: 'dwr.eth', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKj2dCVtbRvC6iffSsg0hc0hjXgEo-rQuI1NIeLz1Ztw8rK7AAUEU-QjyyCjj1TPsfXTs4ResreBHUCccTKo2ClCySp70LgQa2yiRdwWioiXXwqBOACYNJNxUKOrA_epeJpU3Oanye3EaZjnnr8PMMqqNTgagBWHVHuY6dAhQtWHtArSMtmRHeX0dZP_1yOXq4doUadHPmWgXKMGeHLOycfxTnQ9tvEUW_9H_PdqgE0OD2wkZs7gaQbCGd_z3moOMpQK1xUc1ZTNPb', value: '1.8 ETH', maxClaim: '1.8 ETH' },
-    { rank: 3, address: 'gmoney.eth', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBZTkcRuRkNZsOm7MDSTtLOuLyQ860wC4NlLsl07CzrY-C9UzYXpU-v37NLugP_QHyY0c3i8ORarDmw0kKcGmNbmJGDrjubF3cfBo_89xoI2nqLMjUmSb-zIWfhb0kGX45Dihyf0k7LZN0PVI2QVONVyo1XlIE52O8-0njOYBpJ6ladZzg5fwR-U3icDzxf8NqkILEtIgJDxE0ASefeixelu4Pu1LAQJyC3_t7bYylqN6-scxXVm8MMoadwzew3C0yFS2LzyMcZbDm5', value: '1.2 ETH', maxClaim: '1.2 ETH' },
-  ]
+  // Fetch leaderboard data
+  const { data: leaderboardData, isLoading, error } = useQuery({
+    queryKey: ['leaderboard', boardType, timeFilter],
+    queryFn: () => apiClient.getLeaderboard(boardType, timeFilter),
+    staleTime: 30 * 1000, // 30 seconds
+  })
+
+  const leaders: LeaderboardEntry[] = leaderboardData?.top || []
 
   const boardTypes = [
-    { id: 'luckiest' as const, label: 'Luckiest', icon: 'trending_up' },
+    { id: 'luck' as const, label: 'Luckiest', icon: 'trending_up' },
     { id: 'generous' as const, label: 'Most Generous', icon: 'favorite' },
     { id: 'active' as const, label: 'Most Active', icon: 'local_fire_department' },
     { id: 'channel' as const, label: 'Channel Leaderboard', icon: 'groups' },
   ]
+
+  // Format address for display
+  const formatAddress = (addr: string) => {
+    if (!addr) return 'Unknown'
+    // Check if it's an ENS name (contains .eth or .xyz, etc.)
+    if (addr.includes('.')) return addr
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
+  }
+
+  // Format score based on board type
+  const formatScore = (score: string, type: BoardType) => {
+    const num = parseFloat(score)
+    if (type === 'luck' || type === 'generous') {
+      // For luck and generous, score is in wei (assuming 18 decimals for ETH)
+      // For USDC, it would be 6 decimals, but we'll assume ETH for now
+      const eth = num / 1e18
+      if (eth >= 1) {
+        return `${eth.toFixed(2)} ETH`
+      } else {
+        return `${(eth * 1000).toFixed(2)} mETH`
+      }
+    } else if (type === 'active') {
+      // For active, score is count
+      return `${Math.floor(num)} claims`
+    } else {
+      // For channel, score might be different
+      return `${Math.floor(num)}`
+    }
+  }
 
   const timeFilters: { value: TimeFilter; label: string }[] = [
     { value: '24h', label: '24 Hours' },
@@ -114,47 +141,89 @@ export default function LeaderboardsPage() {
 
         {/* Leaderboard */}
         <div className="px-3 xs:px-4">
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="divide-y divide-gray-200">
-              {leaders.map((leader) => (
-                <div
-                  key={leader.rank}
-                  className="flex items-center gap-3 xs:gap-4 p-3 xs:p-4 hover:bg-surface-light transition-colors"
-                >
-                  <div className="flex items-center justify-center w-8 xs:w-10 h-8 xs:h-10 rounded-full shrink-0">
-                    <span className="text-lg xs:text-xl font-bold text-text-primary-light">
-                      {getMedal(leader.rank)}
-                    </span>
-                  </div>
-                  <img
-                    className="w-10 xs:w-12 h-10 xs:h-12 rounded-full shrink-0"
-                    alt={leader.address}
-                    src={leader.avatar}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm xs:text-base font-bold text-text-primary-light truncate">
-                      {leader.address}
-                    </p>
-                    {leader.maxClaim && (
-                      <p className="text-xs text-text-secondary-light">Max claim: {leader.maxClaim}</p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm xs:text-base font-bold text-text-primary-light">{leader.value}</p>
-                  </div>
-                </div>
-              ))}
+          {isLoading ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-text-secondary-light">Loading leaderboard...</p>
             </div>
-          </div>
+          ) : error ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <p className="text-red-500 mb-4">Failed to load leaderboard</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="glass-button px-4 py-2 rounded-lg"
+              >
+                Retry
+              </button>
+            </div>
+          ) : leaders.length === 0 ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-8 text-center">
+              <p className="text-text-secondary-light">No data available yet</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="divide-y divide-gray-200">
+                {leaders
+                  .filter((leader) => {
+                    if (!search) return true
+                    const searchLower = search.toLowerCase()
+                    return (
+                      leader.address.toLowerCase().includes(searchLower) ||
+                      leader.farcasterName?.toLowerCase().includes(searchLower) ||
+                      false
+                    )
+                  })
+                  .map((leader) => (
+                    <div
+                      key={leader.userId}
+                      className="flex items-center gap-3 xs:gap-4 p-3 xs:p-4 hover:bg-surface-light transition-colors"
+                    >
+                      <div className="flex items-center justify-center w-8 xs:w-10 h-8 xs:h-10 rounded-full shrink-0">
+                        <span className="text-lg xs:text-xl font-bold text-text-primary-light">
+                          {getMedal(leader.rank)}
+                        </span>
+                      </div>
+                      <div className="w-10 xs:w-12 h-10 xs:h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="material-symbols-outlined text-primary text-lg xs:text-xl">
+                          account_circle
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm xs:text-base font-bold text-text-primary-light truncate">
+                          {leader.farcasterName || formatAddress(leader.address)}
+                        </p>
+                        <p className="text-xs text-text-secondary-light truncate">
+                          {leader.farcasterName ? formatAddress(leader.address) : ''}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm xs:text-base font-bold text-text-primary-light">
+                          {formatScore(leader.score, boardType)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Channel Leaderboard (P1 - when channel tab selected) */}
+        {/* Channel Leaderboard Info */}
         {boardType === 'channel' && (
           <div className="px-3 xs:px-4">
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-              <p className="text-sm text-yellow-800 font-medium">
-                Channel leaderboard coming soon! Check back later.
-              </p>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <span className="material-symbols-outlined text-blue-600 text-xl">info</span>
+                <div>
+                  <p className="text-sm text-blue-800 font-medium mb-1">
+                    Channel Leaderboard
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    This leaderboard shows the most active channels (Farcaster channels) based on gift activity.
+                    Channel rankings are calculated based on the number of gifts created and claimed within each channel.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

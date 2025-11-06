@@ -1,5 +1,5 @@
-import { createWalletClient, createPublicClient, http, parseAbiItem } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, createPublicClient, http, parseAbiItem, type Hash, type Address } from 'viem'
+import { privateKeyToAccount, recoverMessageAddress } from 'viem/accounts'
 import { sepolia } from 'viem/chains'
 import { getContractAddress } from './chain.service'
 
@@ -10,6 +10,17 @@ const RED_PACKET_ABI = [
     type: 'function',
     name: 'claimPacket',
     inputs: [{ name: 'packetId', type: 'bytes32' }],
+    outputs: [{ name: 'amount', type: 'uint256' }],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'claimFor',
+    inputs: [
+      { name: 'user', type: 'address' },
+      { name: 'packetId', type: 'bytes32' },
+      { name: 'signature', type: 'bytes' },
+    ],
     outputs: [{ name: 'amount', type: 'uint256' }],
     stateMutability: 'nonpayable',
   },
@@ -180,22 +191,122 @@ export async function verifyTransaction(txHash: `0x${string}`, expectedPacketId?
 }
 
 /**
- * 代理调用 claimPacket（需要用户签名授权或使用 Paymaster）
+ * 生成待签名消息（EIP-191 格式）
  */
-export async function proxyClaimPacket(packetId: `0x${string}`, userAddress: `0x${string}`) {
+export function generateClaimMessage(packetId: `0x${string}`, userAddress: `0x${string}`, nonce: string): string {
+  return `Claim packet ${packetId} as ${userAddress}\nNonce: ${nonce}\nTimestamp: ${Date.now()}`
+}
+
+/**
+ * 验证用户签名
+ */
+export async function verifyClaimSignature(
+  message: string,
+  signature: `0x${string}`,
+  expectedAddress: `0x${string}`
+): Promise<boolean> {
+  try {
+    const recovered = await recoverMessageAddress({
+      message,
+      signature,
+    })
+    return recovered.toLowerCase() === expectedAddress.toLowerCase()
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 代理调用 claimPacket - 方式1：使用 claimFor 函数（需要合约支持）
+ * @param packetId 红包 ID
+ * @param userAddress 用户地址
+ * @param signature 用户签名（对消息的签名）
+ * @param message 原始消息
+ * @returns 交易哈希
+ */
+export async function proxyClaimPacketWithClaimFor(
+  packetId: `0x${string}`,
+  userAddress: `0x${string}`,
+  signature: `0x${string}`,
+  message: string
+): Promise<Hash> {
+  // 1) 验证签名
+  const isValid = await verifyClaimSignature(message, signature, userAddress)
+  if (!isValid) {
+    throw new Error('Invalid signature')
+  }
+
+  // 2) 验证消息包含 packetId
+  if (!message.toLowerCase().includes(packetId.toLowerCase())) {
+    throw new Error('Message does not contain packetId')
+  }
+
+  // 3) 使用代理钱包调用 claimFor
   const walletClient = createWalletClientForProxy()
-  const address = getContractAddress()
-  
-  // 注意：实际实现中需要用户签名或使用 ERC-4337 Account Abstraction
-  // 这里仅作为框架示例
-  const hash = await walletClient.writeContract({
-    address,
-    abi: RED_PACKET_ABI,
-    functionName: 'claimPacket',
-    args: [packetId],
-    account: walletClient.account, // 这里应该是用户的 account
-  })
-  
-  return hash
+  const contractAddress = getContractAddress()
+
+  try {
+    const hash = await walletClient.writeContract({
+      address: contractAddress,
+      abi: RED_PACKET_ABI,
+      functionName: 'claimFor',
+      args: [userAddress, packetId, signature as `0x${string}`],
+    })
+
+    return hash
+  } catch (error: any) {
+    // 如果合约不支持 claimFor，会在这里失败
+    if (error?.message?.includes('claimFor') || error?.message?.includes('function')) {
+      throw new Error('Contract does not support claimFor. Please use direct contract call or ERC-4337.')
+    }
+    throw error
+  }
+}
+
+/**
+ * 代理调用 claimPacket - 方式2：ERC-4337 Paymaster 代付（备选，待实现）
+ */
+export async function proxyClaimPacketWithPaymaster(
+  packetId: `0x${string}`,
+  userAddress: `0x${string}`
+): Promise<Hash> {
+  // TODO: 集成 ERC-4337 SDK
+  // 1) 构建 UserOperation
+  // 2) 通过 Paymaster 代付 gas
+  // 3) 提交到 Bundler
+  throw new Error('ERC-4337 Paymaster not implemented yet. Use proxyClaimPacketWithSignature instead.')
+}
+
+/**
+ * 统一入口：代理领取红包
+ * @param packetId 红包 ID
+ * @param userAddress 用户地址
+ * @param options 选项：signature + message（推荐）或 usePaymaster
+ * @returns 交易哈希
+ */
+export async function proxyClaimPacket(
+  packetId: `0x${string}`,
+  userAddress: `0x${string}`,
+  options?: {
+    signature?: `0x${string}`
+    message?: string
+    nonce?: string
+    usePaymaster?: boolean
+  }
+): Promise<Hash> {
+  if (options?.usePaymaster) {
+    return proxyClaimPacketWithPaymaster(packetId, userAddress)
+  }
+
+  if (options?.signature && options?.message) {
+    return proxyClaimPacketWithClaimFor(packetId, userAddress, options.signature, options.message)
+  }
+
+  // 如果没有提供签名，生成消息并提示前端需要签名
+  const nonce = options?.nonce || `${Date.now()}-${Math.random()}`
+  const message = generateClaimMessage(packetId, userAddress, nonce)
+  throw new Error(
+    `Signature required. Please sign this message and retry:\n${message}\n\nOr use usePaymaster=true for ERC-4337.`
+  )
 }
 

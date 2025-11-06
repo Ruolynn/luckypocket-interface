@@ -6,20 +6,38 @@ on:
       check_only:
         description: "Run --check to list teams"
         required: false
-        default: "true"
+        default: "false"
+        type: boolean
       team_key:
-        description: "LINEAR_TEAM_KEY (e.g., ENG)"
+        description: "LINEAR_TEAM_KEY (e.g., ZES)"
         required: false
+        default: "ZES"
+        type: string
       team_id:
-        description: "LINEAR_TEAM_ID (UUID)"
+        description: "LINEAR_TEAM_ID (UUID, optional, overrides team_key)"
         required: false
+        type: string
       project_id:
         description: "LINEAR_PROJECT_ID (optional)"
         required: false
+        type: string
+      tasks_file:
+        description: "Path to tasks JSON file"
+        required: false
+        default: "apps/api/scripts/tasks.linear.json"
+        type: string
+  # 可选：在推送到 main 分支时自动同步（如果 tasks.linear.json 有变更）
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/scripts/tasks.linear.json'
+      - '.github/workflows/linear-sync.yml'
 
 jobs:
-  run:
+  check:
+    name: Check Linear Teams
     runs-on: ubuntu-latest
+    if: ${{ inputs.check_only == true || github.event_name == 'push' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,21 +47,76 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Check teams (optional)
-        if: ${{ inputs.check_only == 'true' }}
+      - name: Check Linear teams
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
         run: |
+          echo "Checking Linear teams..."
           node apps/api/scripts/linear-sync.cjs --check
 
-      - name: Sync tasks
-        if: ${{ inputs.check_only != 'true' }}
+  sync:
+    name: Sync Tasks to Linear
+    runs-on: ubuntu-latest
+    if: ${{ inputs.check_only != true && (github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[linear-sync]'))) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check tasks file exists
+        id: check_file
+        run: |
+          TASKS_FILE="${{ inputs.tasks_file || 'apps/api/scripts/tasks.linear.json' }}"
+          if [ ! -f "$TASKS_FILE" ]; then
+            echo "Tasks file not found: $TASKS_FILE"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "file=$TASKS_FILE" >> $GITHUB_OUTPUT
+
+      - name: Sync tasks to Linear
+        if: steps.check_file.outputs.exists == 'true'
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          LINEAR_TEAM_KEY: ${{ inputs.team_key }}
+          LINEAR_TEAM_KEY: ${{ inputs.team_key || 'ZES' }}
           LINEAR_TEAM_ID: ${{ inputs.team_id }}
           LINEAR_PROJECT_ID: ${{ inputs.project_id }}
         run: |
-          node apps/api/scripts/linear-sync.cjs apps/api/scripts/tasks.linear.json
+          TASKS_FILE="${{ steps.check_file.outputs.file }}"
+          echo "Syncing tasks from: $TASKS_FILE"
+          echo "Team Key: ${{ inputs.team_key || 'ZES' }}"
+          node apps/api/scripts/linear-sync.cjs "$TASKS_FILE"
+
+      - name: Upload results
+        if: steps.check_file.outputs.exists == 'true' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linear-sync-results
+          path: apps/api/scripts/tasks.linear.result.json
+          if-no-files-found: ignore
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && steps.check_file.outputs.exists == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'apps/api/scripts/tasks.linear.result.json';
+            if (fs.existsSync(path)) {
+              const results = JSON.parse(fs.readFileSync(path, 'utf8'));
+              const body = `## Linear Sync Results\n\n` +
+                results.map(r => `- ✅ ${r.title}: ${r.url}`).join('\n');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
 
 

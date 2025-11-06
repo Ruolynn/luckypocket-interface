@@ -24,43 +24,71 @@ luckyPocket/
 
 - Node.js 20+
 - pnpm 8+
-- PostgreSQL 14+
-- Redis 7+
+- Docker & Docker Compose
 - Foundry (for smart contracts)
 
-### Environment Setup
+### Quick Start (Recommended)
 
-1. Copy environment variable templates:
+1. **启动 Docker 服务**
+   ```bash
+   docker compose up -d
+   ```
+
+2. **运行启动检查脚本**
+   ```bash
+   ./scripts/start-dev.sh
+   ```
+
+3. **启动服务**
+   ```bash
+   # 终端 1: 启动 API
+   cd apps/api
+   pnpm dev
+   
+   # 终端 2: 启动 Web
+   cd apps/web
+   pnpm dev
+   ```
+
+4. **访问应用**
+   - Web: http://localhost:9000
+   - API: http://localhost:3001
+
+### Detailed Setup
+
+详细的本地开发环境配置指南，请查看：
+- [本地启动指南](./LOCAL_SETUP.md) - 完整的本地开发环境配置
+- [环境变量配置](./ENV_SETUP.md) - 环境变量详细说明
+
+### Manual Setup
+
+**1. Environment Setup**
+
 ```bash
-cp apps/api/.env.example apps/api/.env
-cp apps/web/.env.local apps/web/.env.local
+# 配置 API 环境变量
+cd apps/api
+# 创建 .env 文件（参考 ENV_SETUP.md）
+
+# 配置 Web 环境变量
+cd ../web
+# 创建 .env.local 文件
 ```
 
-2. Configure your environment variables (see `.env.example` files)
-
-### Install Dependencies
+**2. Install Dependencies**
 
 ```bash
 pnpm install
 ```
 
-### Database Initialization
+**3. Database Initialization**
 
 ```bash
 cd apps/api
-pnpm prisma migrate dev
-pnpm prisma generate
+pnpm prisma:generate
+pnpm prisma:migrate
 ```
 
-### Start Development Services
-
-**Option 1: Start all services (parallel)**
-```bash
-# From root directory
-pnpm dev
-```
-
-**Option 2: Start services individually**
+**4. Start Services**
 
 Backend API:
 ```bash
@@ -75,8 +103,6 @@ cd apps/web
 pnpm dev
 # Running on http://localhost:9000
 ```
-
-Access the application at **http://localhost:9000**
 
 ## 📦 Deployment
 

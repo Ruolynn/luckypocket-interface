@@ -12,10 +12,14 @@ export interface Gift {
   sender: {
     id: string
     address: string
+    farcasterName?: string
+    farcasterFid?: number
   }
   recipient?: {
     id: string
     address: string
+    farcasterName?: string
+    farcasterFid?: number
   }
   recipientAddress: string
   tokenType: 'ETH' | 'ERC20' | 'ERC721' | 'ERC1155'
@@ -23,11 +27,24 @@ export interface Gift {
   amount: string
   tokenSymbol?: string
   tokenDecimals?: number
+  tokenName?: string
   message?: string
   status: 'PENDING' | 'CLAIMED' | 'REFUNDED' | 'EXPIRED'
   expiresAt: string
   createdAt: string
   claimedAt?: string
+  claims?: Array<{
+    id: string
+    claimer: {
+      id: string
+      address: string
+      farcasterName?: string
+      farcasterFid?: number
+    }
+    amount: string
+    claimedAt: string
+    txHash: string
+  }>
 }
 
 interface GiftStore {

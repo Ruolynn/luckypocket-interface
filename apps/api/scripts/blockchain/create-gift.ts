@@ -101,7 +101,7 @@ async function createETHGift(
       address: DEGIFT_CONTRACT,
       abi: DeGiftAbi,
       functionName: 'createGift',
-      args: [recipient, '0x0000000000000000000000000000000000000000', 0n, message, expiresAt],
+      args: [recipient, '0x0000000000000000000000000000000000000000', amountWei, message, expiresAt],
       value: amountWei,
     })
 

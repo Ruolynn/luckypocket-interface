@@ -132,12 +132,13 @@ class ApiClient {
 
   // Leaderboard APIs
   async getLeaderboard(
-    type: 'lucky' | 'generous' | 'active' | 'channel',
+    type: 'luck' | 'generous' | 'active' | 'channel',
     timeRange?: '24h' | '7d' | '30d' | 'all'
   ): Promise<LeaderboardResponse> {
     const params = new URLSearchParams()
+    params.set('type', type)
     if (timeRange) params.set('range', timeRange)
-    return this.request(`/api/leaderboard/${type}?${params}`)
+    return this.request(`/api/leaderboard?${params.toString()}`)
   }
 
   // Achievement APIs

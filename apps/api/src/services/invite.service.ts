@@ -12,6 +12,17 @@ interface InviteRewardConfig {
   userDailyClaimLimit: number // 单用户每日领取上限
   userTotalClaimLimit: number // 单用户总领取上限
 
+  // 熔断机制
+  circuitBreakerEnabled: boolean // 是否启用熔断
+  circuitBreakerFailureThreshold: number // 失败次数阈值（触发熔断）
+  circuitBreakerResetTimeout: number // 熔断恢复时间（秒）
+  circuitBreakerHalfOpenMaxCalls: number // 半开状态最大尝试次数
+
+  // 风控
+  enableAntiFraud: boolean // 是否启用反欺诈检测
+  maxInvitesPerIP: number // 单IP每日最大邀请数
+  maxInvitesPerDevice: number // 单设备每日最大邀请数
+
   // 开关
   enabled: boolean
 }
@@ -24,7 +35,21 @@ const DEFAULT_CONFIG: InviteRewardConfig = {
   weeklyBudgetLimit: BigInt(5000_000_000), // $5000 per week
   userDailyClaimLimit: 10, // 每用户每天最多10次
   userTotalClaimLimit: 100, // 每用户总共最多100次
+  circuitBreakerEnabled: true,
+  circuitBreakerFailureThreshold: 10, // 10次失败后触发熔断
+  circuitBreakerResetTimeout: 300, // 5分钟后尝试恢复
+  circuitBreakerHalfOpenMaxCalls: 3, // 半开状态最多尝试3次
+  enableAntiFraud: true,
+  maxInvitesPerIP: 20, // 单IP每日最多20个邀请
+  maxInvitesPerDevice: 10, // 单设备每日最多10个邀请
   enabled: true,
+}
+
+// 熔断器状态
+enum CircuitBreakerState {
+  CLOSED = 'CLOSED', // 正常状态
+  OPEN = 'OPEN', // 熔断状态
+  HALF_OPEN = 'HALF_OPEN', // 半开状态（尝试恢复）
 }
 
 export class InviteRewardService {
@@ -32,6 +57,10 @@ export class InviteRewardService {
   private prisma: PrismaClient
   private redis: any
   private app: FastifyInstance
+  private circuitBreakerState: CircuitBreakerState = CircuitBreakerState.CLOSED
+  private circuitBreakerFailureCount: number = 0
+  private circuitBreakerLastFailureTime: number = 0
+  private circuitBreakerHalfOpenCalls: number = 0
 
   constructor(app: FastifyInstance) {
     this.app = app
@@ -167,6 +196,138 @@ export class InviteRewardService {
   }
 
   /**
+   * 检查熔断器状态
+   */
+  private async checkCircuitBreaker(): Promise<{ allowed: boolean; reason?: string }> {
+    if (!this.config.circuitBreakerEnabled) {
+      return { allowed: true }
+    }
+
+    const now = Date.now()
+
+    // 检查是否需要从 OPEN 状态恢复
+    if (this.circuitBreakerState === CircuitBreakerState.OPEN) {
+      const timeSinceLastFailure = (now - this.circuitBreakerLastFailureTime) / 1000
+      if (timeSinceLastFailure >= this.config.circuitBreakerResetTimeout) {
+        // 进入半开状态
+        this.circuitBreakerState = CircuitBreakerState.HALF_OPEN
+        this.circuitBreakerHalfOpenCalls = 0
+        this.app.log.info('Circuit breaker entering HALF_OPEN state')
+      } else {
+        return {
+          allowed: false,
+          reason: `Circuit breaker is OPEN. Retry after ${Math.ceil(this.config.circuitBreakerResetTimeout - timeSinceLastFailure)} seconds`,
+        }
+      }
+    }
+
+    // 半开状态检查
+    if (this.circuitBreakerState === CircuitBreakerState.HALF_OPEN) {
+      if (this.circuitBreakerHalfOpenCalls >= this.config.circuitBreakerHalfOpenMaxCalls) {
+        // 半开状态尝试次数过多，重新进入 OPEN 状态
+        this.circuitBreakerState = CircuitBreakerState.OPEN
+        this.circuitBreakerLastFailureTime = now
+        this.app.log.warn('Circuit breaker re-entering OPEN state after HALF_OPEN attempts')
+        return { allowed: false, reason: 'Circuit breaker is OPEN after HALF_OPEN attempts' }
+      }
+    }
+
+    return { allowed: true }
+  }
+
+  /**
+   * 记录成功操作（用于熔断器）
+   */
+  private recordSuccess(): void {
+    if (this.circuitBreakerState === CircuitBreakerState.HALF_OPEN) {
+      // 半开状态下成功，恢复正常
+      this.circuitBreakerState = CircuitBreakerState.CLOSED
+      this.circuitBreakerFailureCount = 0
+      this.circuitBreakerHalfOpenCalls = 0
+      this.app.log.info('Circuit breaker recovered to CLOSED state')
+    } else if (this.circuitBreakerState === CircuitBreakerState.CLOSED) {
+      // 正常状态下，重置失败计数
+      this.circuitBreakerFailureCount = 0
+    }
+  }
+
+  /**
+   * 记录失败操作（用于熔断器）
+   */
+  private recordFailure(): void {
+    this.circuitBreakerFailureCount++
+    this.circuitBreakerLastFailureTime = Date.now()
+
+    if (this.circuitBreakerState === CircuitBreakerState.HALF_OPEN) {
+      // 半开状态下失败，重新进入 OPEN 状态
+      this.circuitBreakerState = CircuitBreakerState.OPEN
+      this.circuitBreakerHalfOpenCalls = 0
+      this.app.log.warn('Circuit breaker re-entering OPEN state after HALF_OPEN failure')
+    } else if (
+      this.circuitBreakerState === CircuitBreakerState.CLOSED &&
+      this.circuitBreakerFailureCount >= this.config.circuitBreakerFailureThreshold
+    ) {
+      // 达到失败阈值，进入 OPEN 状态
+      this.circuitBreakerState = CircuitBreakerState.OPEN
+      this.app.log.error(
+        {
+          failureCount: this.circuitBreakerFailureCount,
+          threshold: this.config.circuitBreakerFailureThreshold,
+        },
+        'Circuit breaker triggered: entering OPEN state'
+      )
+    }
+  }
+
+  /**
+   * 风控检查：IP和设备指纹
+   */
+  private async checkAntiFraud(
+    userId: string,
+    ipAddress?: string,
+    deviceFingerprint?: string
+  ): Promise<{ allowed: boolean; reason?: string }> {
+    if (!this.config.enableAntiFraud) {
+      return { allowed: true }
+    }
+
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+
+    // IP 检查
+    if (ipAddress) {
+      const ipKey = `invite:ip:${ipAddress}:${todayStart.toISOString().split('T')[0]}`
+      const ipCount = await this.redis.incr(ipKey)
+      await this.redis.expire(ipKey, 86400) // TTL: 1天
+
+      if (ipCount > this.config.maxInvitesPerIP) {
+        this.app.log.warn({ ipAddress, count: ipCount }, 'Anti-fraud: IP limit exceeded')
+        return {
+          allowed: false,
+          reason: `Too many invites from this IP address (${ipCount}/${this.config.maxInvitesPerIP})`,
+        }
+      }
+    }
+
+    // 设备指纹检查
+    if (deviceFingerprint) {
+      const deviceKey = `invite:device:${deviceFingerprint}:${todayStart.toISOString().split('T')[0]}`
+      const deviceCount = await this.redis.incr(deviceKey)
+      await this.redis.expire(deviceKey, 86400) // TTL: 1天
+
+      if (deviceCount > this.config.maxInvitesPerDevice) {
+        this.app.log.warn({ deviceFingerprint, count: deviceCount }, 'Anti-fraud: Device limit exceeded')
+        return {
+          allowed: false,
+          reason: `Too many invites from this device (${deviceCount}/${this.config.maxInvitesPerDevice})`,
+        }
+      }
+    }
+
+    return { allowed: true }
+  }
+
+  /**
    * 检查用户领取限制
    */
   private async checkUserLimits(userId: string): Promise<{ allowed: boolean; reason?: string }> {
@@ -204,13 +365,31 @@ export class InviteRewardService {
   /**
    * 结算邀请奖励（当被邀请人完成首次行为时调用）
    */
-  async settleInviteReward(inviteeId: string): Promise<{
+  async settleInviteReward(
+    inviteeId: string,
+    options?: {
+      ipAddress?: string
+      deviceFingerprint?: string
+    }
+  ): Promise<{
     success: boolean
     inviterId?: string
     amount?: bigint
     error?: string
   }> {
     try {
+      // 检查熔断器
+      const circuitCheck = await this.checkCircuitBreaker()
+      if (!circuitCheck.allowed) {
+        this.recordFailure()
+        return { success: false, error: circuitCheck.reason }
+      }
+
+      // 如果是半开状态，增加尝试计数
+      if (this.circuitBreakerState === CircuitBreakerState.HALF_OPEN) {
+        this.circuitBreakerHalfOpenCalls++
+      }
+
       // 查找该用户的邀请关系
       const invitation = await this.prisma.invitation.findFirst({
         where: {
@@ -225,12 +404,14 @@ export class InviteRewardService {
 
       // 没有邀请关系或已结算
       if (!invitation) {
+        this.recordFailure()
         return { success: false, error: 'No pending invitation found' }
       }
 
       // 验证邀请关系
       const isValid = await this.validateInvitation(invitation.inviterId, inviteeId)
       if (!isValid) {
+        this.recordFailure()
         return { success: false, error: 'Invalid invitation' }
       }
 
@@ -241,6 +422,7 @@ export class InviteRewardService {
           { inviterId: invitation.inviterId, inviteeId, reason: budgetCheck.reason },
           'Invite reward blocked by budget limit'
         )
+        this.recordFailure()
         return { success: false, error: budgetCheck.reason }
       }
 
@@ -251,7 +433,23 @@ export class InviteRewardService {
           { inviterId: invitation.inviterId, reason: userLimitCheck.reason },
           'Invite reward blocked by user limit'
         )
+        this.recordFailure()
         return { success: false, error: userLimitCheck.reason }
+      }
+
+      // 风控检查
+      const fraudCheck = await this.checkAntiFraud(
+        invitation.inviterId,
+        options?.ipAddress,
+        options?.deviceFingerprint
+      )
+      if (!fraudCheck.allowed) {
+        this.app.log.warn(
+          { inviterId: invitation.inviterId, inviteeId, reason: fraudCheck.reason },
+          'Invite reward blocked by anti-fraud check'
+        )
+        this.recordFailure()
+        return { success: false, error: fraudCheck.reason }
       }
 
       // 使用事务更新邀请状态并创建通知
@@ -311,6 +509,9 @@ export class InviteRewardService {
         inviteeAddress: invitation.invitee.address,
       })
 
+      // 记录成功（用于熔断器）
+      this.recordSuccess()
+
       return {
         success: true,
         inviterId: invitation.inviterId,
@@ -318,7 +519,25 @@ export class InviteRewardService {
       }
     } catch (error) {
       this.app.log.error({ error, inviteeId }, 'Failed to settle invite reward')
+      this.recordFailure()
       return { success: false, error: 'Internal error' }
+    }
+  }
+
+  /**
+   * 获取熔断器状态（用于监控）
+   */
+  getCircuitBreakerStatus(): {
+    state: CircuitBreakerState
+    failureCount: number
+    lastFailureTime: number | null
+    halfOpenCalls: number
+  } {
+    return {
+      state: this.circuitBreakerState,
+      failureCount: this.circuitBreakerFailureCount,
+      lastFailureTime: this.circuitBreakerLastFailureTime || null,
+      halfOpenCalls: this.circuitBreakerHalfOpenCalls,
     }
   }
 

@@ -1,0 +1,40 @@
+[
+  {
+    "title": "完成 Frame 领取：Farcaster Hub 集成 + /api/frame/claim 幂等与锁",
+    "description": "实现 fid→address 解析，校验红包状态、抢红包幂等等，Redis 分布式锁，记录链上结果并推送通知。"
+  },
+  {
+    "title": "完善 Frame UI：红包详情展示与首屏性能优化",
+    "description": "替换占位图，展示金额/剩余/祝福语，SSR/Streaming 优化，减少首屏闪烁。"
+  },
+  {
+    "title": "完善 proxyClaimPacket：签名/4337 代付打通",
+    "description": "实现用户授权与代付策略，保证交易正确发送与回执处理，失败重试与幂等等。"
+  },
+  {
+    "title": "实现邀请奖励发放：$2 USDC + 风控熔断",
+    "description": "邀请验真、预算控制、黑名单策略、超额熔断与监控、审计日志。"
+  },
+  {
+    "title": "完善事件同步：随机红包 PacketRandomReady 与一致性",
+    "description": "完善事件订阅与回填，更新 remainingAmount/remainingCount，标记手气最佳，处理链上回滚。"
+  },
+  {
+    "title": "优化排行榜前端：展示地址与金额格式化，群榜",
+    "description": "用户标识改为地址显示，金额按 decimals 格式化，按频道聚合展示群榜。"
+  },
+  {
+    "title": "完善红包详情页：领取记录/手气最佳/Socket.IO 实时余量",
+    "description": "领取记录表、最佳标记、Socket 订阅实时更新、领取按钮与错误状态反馈。"
+  },
+  {
+    "title": "代币验证：ERC20 元数据与黑名单检查",
+    "description": "校验 ERC20 接口，读取 decimals/symbol/name，黑名单与风险提示。"
+  },
+  {
+    "title": "完善 Socket.IO 鉴权：JWT 与房间权限",
+    "description": "Socket 连接 JWT 校验、按红包/频道房间权限控制、异常处理与安全日志。"
+  }
+]
+
+

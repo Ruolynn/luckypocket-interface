@@ -2,27 +2,62 @@ import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
 
 const plugin: FastifyPluginAsync = async (app) => {
+  // GET /api/leaderboard?type=luck&range=week
   app.get('/api/leaderboard', async (req, reply) => {
     const { type, range } = z
       .object({
-        type: z.enum(['luck', 'generous', 'active']),
-        range: z.enum(['week', 'month', 'realtime']),
+        type: z.enum(['luck', 'generous', 'active', 'channel']),
+        range: z.enum(['24h', '7d', '30d', 'all', 'week', 'month', 'realtime']).optional(),
       })
       .parse(req.query as any)
 
-    const key = `lb:${type}:${range}`
+    // Map frontend range to backend range
+    const rangeMap: Record<string, string> = {
+      '24h': 'realtime',
+      '7d': 'week',
+      '30d': 'month',
+      'all': 'month',
+    }
+    const backendRange = rangeMap[range || '7d'] || range || 'week'
+
+    const key = `lb:${type}:${backendRange}`
     const rawTop = await app.redis.zrevrange(key, 0, 49, 'WITHSCORES')
     
     // 将 Redis 的 [member, score, member, score, ...] 格式转换为对象数组
-    const top: Array<{ address: string; score: string }> = []
+    const userIds: string[] = []
+    const scores: string[] = []
     for (let i = 0; i < rawTop.length; i += 2) {
-      top.push({
-        address: rawTop[i] as string,
-        score: rawTop[i + 1] as string,
-      })
+      userIds.push(rawTop[i] as string)
+      scores.push(rawTop[i + 1] as string)
     }
 
-    return { type, range, top }
+    // 批量获取用户信息（地址、Farcaster 名称等）
+    const users = await app.prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        address: true,
+        farcasterName: true,
+        farcasterFid: true,
+      },
+    })
+
+    const userMap = new Map(users.map((u) => [u.id, u]))
+
+    // 构建返回数据，保持排序
+    const top = userIds.map((userId, index) => {
+      const user = userMap.get(userId)
+      return {
+        rank: index + 1,
+        address: user?.address || userId,
+        farcasterName: user?.farcasterName || null,
+        farcasterFid: user?.farcasterFid || null,
+        score: scores[index],
+        userId,
+      }
+    })
+
+    return { type, range: range || '7d', top }
   })
 }
 

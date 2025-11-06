@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * @file Wagmi Configuration
  * @description Wagmi and RainbowKit configuration for DeGift

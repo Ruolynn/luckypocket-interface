@@ -292,6 +292,45 @@ debug/
 **/debug/
 
 # ==============================================================================
+# Load Testing & Performance
+# ==============================================================================
+# k6 test results
+k6-results/
+*.k6.json
+load-test-results/
+**/load-test-results/
+
+# Artillery results
+artillery-report/
+*.artillery.json
+
+# Performance test data
+test-data/
+**/test-data/
+
+# ==============================================================================
+# Linear & Task Management
+# ==============================================================================
+# Linear sync results (may contain sensitive info)
+apps/api/scripts/tasks.linear.result.json
+**/tasks.linear.result.json
+
+# Temporary Linear scripts
+apps/api/scripts/check-*.ts
+apps/api/scripts/check-*.js
+apps/api/scripts/close-*.ts
+apps/api/scripts/close-*.js
+apps/api/scripts/linear-sync.js
+
+# ==============================================================================
+# Documentation (Temporary)
+# ==============================================================================
+# Temporary documentation files (keep important ones)
+如何确认Linear已接入.md
+LINEAR-快速开始.md
+Linear集成完成报告.md
+
+# ==============================================================================
 # End of .gitignore
 # ==============================================================================
 .env.mcp

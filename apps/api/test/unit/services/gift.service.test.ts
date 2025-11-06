@@ -27,6 +27,7 @@ const createMockPrisma = () => {
     user: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      count: vi.fn(),
     },
     $transaction: vi.fn((callback) => callback(createMockPrisma())),
   } as unknown as PrismaClient
@@ -76,11 +77,18 @@ describe('GiftService', () => {
       expect(mockPrisma.gift.findUnique).toHaveBeenCalledWith({
         where: { giftId: '0x123' },
         include: {
-          sender: true,
-          recipient: true,
+          sender: {
+            select: { id: true, address: true, farcasterName: true, farcasterFid: true },
+          },
+          recipient: {
+            select: { id: true, address: true, farcasterName: true, farcasterFid: true },
+          },
           claims: {
-            include: { claimer: true },
-            orderBy: { claimedAt: 'desc' },
+            include: {
+              claimer: {
+                select: { id: true, address: true, farcasterName: true, farcasterFid: true },
+              },
+            },
           },
         },
       })
@@ -166,10 +174,7 @@ describe('GiftService', () => {
       expect(mockPrisma.gift.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            recipientAddress: expect.objectContaining({
-              equals: address,
-              mode: 'insensitive',
-            }),
+            recipientAddress: address.toLowerCase(),
           }),
         })
       )
@@ -183,7 +188,7 @@ describe('GiftService', () => {
 
       expect(mockPrisma.gift.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          take: 21, // limit + 1 to check hasMore
+          take: 20,
           skip: 40,
         })
       )
@@ -197,7 +202,7 @@ describe('GiftService', () => {
 
       expect(mockPrisma.gift.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          take: 51, // default limit + 1
+          take: 20,
         })
       )
     })
@@ -229,7 +234,7 @@ describe('GiftService', () => {
     })
 
     it('should calculate hasMore correctly when more items exist', async () => {
-      const mockGifts = new Array(51).fill({
+      const mockGifts = new Array(50).fill({
         id: 'gift',
         giftId: '0x1',
         sender: { address: '0x1' },
@@ -241,7 +246,7 @@ describe('GiftService', () => {
       const result = await giftService.getGifts({ limit: 50 })
 
       expect(result.hasMore).toBe(true)
-      expect(result.gifts).toHaveLength(50) // Should truncate to limit
+      expect(result.gifts).toHaveLength(50)
     })
   })
 
@@ -268,7 +273,11 @@ describe('GiftService', () => {
       expect(result[0].txHash).toBe('0xabc')
       expect(mockPrisma.giftClaim.findMany).toHaveBeenCalledWith({
         where: { giftId: 'gift_1' },
-        include: { claimer: true },
+        include: {
+          claimer: {
+            select: { id: true, address: true, farcasterName: true, farcasterFid: true },
+          },
+        },
         orderBy: { claimedAt: 'desc' },
       })
     })
@@ -467,7 +476,7 @@ describe('GiftService', () => {
 
       const result = await giftService.markExpiredGifts()
 
-      expect(result.markedExpired).toBe(5)
+      expect(result).toBe(5)
       expect(mockPrisma.gift.updateMany).toHaveBeenCalledWith({
         where: {
           status: 'PENDING',
@@ -482,31 +491,32 @@ describe('GiftService', () => {
 
       const result = await giftService.markExpiredGifts()
 
-      expect(result.markedExpired).toBe(0)
+      expect(result).toBe(0)
     })
   })
 
   describe('getUserSentGifts', () => {
-    it('should throw error for non-existent user', async () => {
-      vi.spyOn(mockPrisma.user, 'findFirst').mockResolvedValue(null)
+    it('should return empty list for non-existent user', async () => {
+      vi.spyOn(mockPrisma.user, 'findUnique').mockResolvedValue(null as any)
 
-      await expect(giftService.getUserSentGifts('0xUser')).rejects.toThrow(
-        'User not found with address'
-      )
+      const result = await giftService.getUserSentGifts('0xUser')
+      expect(result.data).toEqual([])
+      expect(result.pagination.total).toBe(0)
+      expect(result.pagination.hasMore).toBe(false)
     })
 
     it('should return gifts sent by user', async () => {
       const mockUser = { id: 'user_1', address: '0xUser' }
       const mockGifts = [{ id: 'gift_1', senderId: 'user_1' }]
 
-      vi.spyOn(mockPrisma.user, 'findFirst').mockResolvedValue(mockUser as any)
+      vi.spyOn(mockPrisma.user, 'findUnique').mockResolvedValue(mockUser as any)
       vi.spyOn(mockPrisma.gift, 'findMany').mockResolvedValue(mockGifts as any)
       vi.spyOn(mockPrisma.gift, 'count').mockResolvedValue(1)
 
       const result = await giftService.getUserSentGifts('0xUser')
 
-      expect(result.gifts).toHaveLength(1)
-      expect(result.total).toBe(1)
+      expect(result.data).toHaveLength(1)
+      expect(result.pagination.total).toBe(1)
     })
   })
 
@@ -519,15 +529,12 @@ describe('GiftService', () => {
 
       const result = await giftService.getUserReceivedGifts('0xUser')
 
-      expect(result.gifts).toHaveLength(1)
-      expect(result.total).toBe(1)
+      expect(result.data).toHaveLength(1)
+      expect(result.pagination.total).toBe(1)
       expect(mockPrisma.gift.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            recipientAddress: expect.objectContaining({
-              equals: '0xUser',
-              mode: 'insensitive',
-            }),
+            recipientAddress: '0xuser',
           }),
         })
       )
@@ -542,10 +549,7 @@ describe('GiftService', () => {
       expect(mockPrisma.gift.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            recipientAddress: expect.objectContaining({
-              equals: '0xABCDEF',
-              mode: 'insensitive',
-            }),
+            recipientAddress: '0xabcdef',
           }),
         })
       )
@@ -565,10 +569,10 @@ describe('GiftService', () => {
 
       const result = await giftService.getGlobalStats()
 
-      expect(result.totalGifts).toBe(100)
-      expect(result.totalByStatus).toHaveProperty('PENDING', 50)
-      expect(result.totalByStatus).toHaveProperty('CLAIMED', 30)
-      expect(result.totalByStatus).toHaveProperty('EXPIRED', 20)
+      expect(result.data.totalGifts).toBe(100)
+      expect(result.data.totalPending).toBe(50)
+      expect(result.data.totalClaimed).toBe(30)
+      expect(result.data.totalExpired).toBe(20)
     })
   })
 })

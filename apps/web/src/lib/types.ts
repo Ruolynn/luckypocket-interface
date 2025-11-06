@@ -123,7 +123,17 @@ export interface InviteStatsResponse {
   invitations: Invitation[]
 }
 
+export interface LeaderboardEntry {
+  rank: number
+  address: string
+  farcasterName?: string | null
+  farcasterFid?: number | null
+  score: string
+  userId: string
+}
+
 export interface LeaderboardResponse {
-  entries: LeaderboardEntry[]
-  userRank?: number
+  type: 'luck' | 'generous' | 'active' | 'channel'
+  range: string
+  top: LeaderboardEntry[]
 }

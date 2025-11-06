@@ -7,6 +7,8 @@ import type { FastifyPluginAsync, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { GiftService } from '../services/gift.service'
 import { siweAuthMiddleware, optionalAuthMiddleware } from '../middleware/siwe-auth'
+import { proxyClaimPacket, generateClaimMessage } from '../services/contract.service'
+import { getTokenValidationService } from '../services/token-validation.service'
 
 // Request schemas
 const CreateGiftSchema = z.object({
@@ -97,6 +99,41 @@ const plugin: FastifyPluginAsync = async (app) => {
             error: 'VALIDATION_ERROR',
             message: `tokenId is required for ${body.tokenType} gifts`,
           })
+        }
+
+        // Token validation for ERC20 tokens
+        if (body.tokenType === 'ERC20' && body.tokenAddress) {
+          try {
+            const validationService = getTokenValidationService()
+            const validation = await validationService.validateToken(body.tokenAddress as `0x${string}`)
+
+            if (!validation.isValid) {
+              return reply.code(400).send({
+                error: 'INVALID_TOKEN',
+                message: 'Token validation failed',
+                details: {
+                  isERC20: validation.isERC20,
+                  isBlacklisted: validation.isBlacklisted,
+                  risks: validation.risks,
+                  warnings: validation.warnings,
+                  metadata: validation.metadata,
+                },
+              })
+            }
+
+            // 如果验证通过但有警告，记录日志
+            if (validation.warnings.length > 0) {
+              app.log.warn({ tokenAddress: body.tokenAddress, warnings: validation.warnings }, 'Token validation warnings')
+            }
+          } catch (error: any) {
+            app.log.error({ error, tokenAddress: body.tokenAddress }, 'Token validation error')
+            // 验证失败时，允许继续但记录警告（避免过于严格导致正常代币无法使用）
+            // 如果确实需要严格验证，可以取消注释下面的代码
+            // return reply.code(400).send({
+            //   error: 'TOKEN_VALIDATION_ERROR',
+            //   message: error.message || 'Failed to validate token',
+            // })
+          }
         }
 
         // Validate ERC721 amount must be 1
@@ -651,6 +688,241 @@ const plugin: FastifyPluginAsync = async (app) => {
         return reply.code(500).send({
           error: 'INTERNAL_ERROR',
           message: 'Failed to refund gift',
+        })
+      }
+    }
+  )
+
+  /**
+   * POST /api/v1/gifts/:giftId/claim-proxy
+   * Proxy claim gift with user signature or ERC-4337
+   * Requires authentication
+   */
+  const ProxyClaimSchema = z.object({
+    signature: z.string().regex(/^0x[a-fA-F0-9]{130}$/, 'Invalid signature format (should be 0x + 130 hex chars)').optional(),
+    message: z.string().min(1).optional(),
+    usePaymaster: z.boolean().optional().default(false),
+  })
+
+  app.post(
+    '/api/v1/gifts/:giftId/claim-proxy',
+    {
+      preHandler: siweAuthMiddleware,
+      schema: {
+        description: 'Proxy claim gift with signature or ERC-4337',
+        tags: ['gifts'],
+        security: [{ bearerAuth: [] }],
+        params: {
+          type: 'object',
+          properties: {
+            giftId: { type: 'string' },
+          },
+        },
+        body: {
+          type: 'object',
+          properties: {
+            signature: { type: 'string' },
+            message: { type: 'string' },
+            usePaymaster: { type: 'boolean' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              success: { type: 'boolean' },
+              txHash: { type: 'string' },
+              message: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        if (!request.user) {
+          return reply.code(401).send({
+            error: 'UNAUTHORIZED',
+            message: 'Authentication required',
+          })
+        }
+
+        const { giftId } = request.params as { giftId: string }
+        const body = ProxyClaimSchema.parse(request.body)
+
+        // Get gift to verify it exists
+        const gift = await giftService.getGift(giftId)
+        if (!gift) {
+          return reply.code(404).send({
+            error: 'NOT_FOUND',
+            message: 'Gift not found',
+          })
+        }
+
+        // Check if already claimed
+        if (gift.status === 'CLAIMED') {
+          return reply.code(400).send({
+            error: 'ALREADY_CLAIMED',
+            message: 'Gift has already been claimed',
+          })
+        }
+
+        const userAddress = request.user.address as `0x${string}`
+
+        // If no signature provided, generate message for user to sign
+        if (!body.signature || !body.message) {
+          if (body.usePaymaster) {
+            // Try ERC-4337
+            try {
+              const txHash = await proxyClaimPacket(giftId as `0x${string}`, userAddress, {
+                usePaymaster: true,
+              })
+              return reply.code(200).send({
+                success: true,
+                txHash,
+                message: 'Claim transaction sent via ERC-4337 Paymaster',
+              })
+            } catch (error: any) {
+              return reply.code(400).send({
+                error: 'PAYMASTER_ERROR',
+                message: error.message || 'ERC-4337 Paymaster not available',
+              })
+            }
+          }
+
+          // Generate message for user to sign
+          const nonce = `${Date.now()}-${Math.random()}`
+          const message = generateClaimMessage(giftId as `0x${string}`, userAddress, nonce)
+          return reply.code(200).send({
+            success: false,
+            message,
+            nonce,
+            instructions: 'Please sign this message with your wallet and retry with signature and message fields',
+          })
+        }
+
+        // Verify and proxy claim
+        try {
+          const txHash = await proxyClaimPacket(giftId as `0x${string}`, userAddress, {
+            signature: body.signature as `0x${string}`,
+            message: body.message!,
+          })
+
+          // Record claim in database (async, don't wait)
+          giftService.recordClaim(giftId, request.user.userId, { txHash }).catch((err) => {
+            app.log.error({ err, giftId }, 'Failed to record claim after proxy')
+          })
+
+          return reply.code(200).send({
+            success: true,
+            txHash,
+            message: 'Claim transaction sent successfully',
+          })
+        } catch (error: any) {
+          app.log.error({ error, giftId }, 'Failed to proxy claim')
+
+          if (error.message?.includes('signature')) {
+            return reply.code(400).send({
+              error: 'INVALID_SIGNATURE',
+              message: error.message,
+            })
+          }
+
+          if (error.message?.includes('claimFor')) {
+            return reply.code(400).send({
+              error: 'CONTRACT_NOT_SUPPORTED',
+              message: 'Contract does not support proxy claim. Please use direct contract call.',
+            })
+          }
+
+          return reply.code(500).send({
+            error: 'INTERNAL_ERROR',
+            message: 'Failed to proxy claim',
+          })
+        }
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            error: 'VALIDATION_ERROR',
+            message: 'Invalid request parameters',
+            details: error.errors,
+          })
+        }
+
+        app.log.error({ error }, 'Failed to proxy claim gift')
+        return reply.code(500).send({
+          error: 'INTERNAL_ERROR',
+          message: 'Failed to process proxy claim',
+        })
+      }
+    }
+  )
+
+  /**
+   * POST /api/v1/tokens/validate
+   * Validate an ERC20 token address
+   * Public endpoint (no auth required for validation)
+   */
+  app.post(
+    '/api/v1/tokens/validate',
+    {
+      schema: {
+        description: 'Validate an ERC20 token',
+        tags: ['tokens'],
+        body: {
+          type: 'object',
+          required: ['tokenAddress'],
+          properties: {
+            tokenAddress: { type: 'string', pattern: '^0x[a-fA-F0-9]{40}$' },
+          },
+        },
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              isValid: { type: 'boolean' },
+              isERC20: { type: 'boolean' },
+              isBlacklisted: { type: 'boolean' },
+              metadata: {
+                type: 'object',
+                properties: {
+                  symbol: { type: ['string', 'null'] },
+                  decimals: { type: ['number', 'null'] },
+                  name: { type: ['string', 'null'] },
+                },
+              },
+              risks: { type: 'array', items: { type: 'string' } },
+              warnings: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      try {
+        const body = z
+          .object({
+            tokenAddress: z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address'),
+          })
+          .parse(request.body)
+
+        const validationService = getTokenValidationService()
+        const validation = await validationService.validateToken(body.tokenAddress as `0x${string}`)
+
+        return reply.code(200).send(validation)
+      } catch (error: any) {
+        if (error instanceof z.ZodError) {
+          return reply.code(400).send({
+            error: 'VALIDATION_ERROR',
+            message: 'Invalid request parameters',
+            details: error.errors,
+          })
+        }
+
+        app.log.error({ error }, 'Failed to validate token')
+        return reply.code(500).send({
+          error: 'INTERNAL_ERROR',
+          message: 'Failed to validate token',
         })
       }
     }

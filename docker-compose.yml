@@ -1,36 +1,57 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
+    container_name: hongbao-postgres
     environment:
-      POSTGRES_USER: hongbao
+      POSTGRES_USER: ${POSTGRES_USER:-hongbao}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hongbao_dev}
-      POSTGRES_DB: hongbao
+      POSTGRES_DB: ${POSTGRES_DB:-hongbao}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U hongbao"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hongbao}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - hongbao-network
 
   redis:
     image: redis:7-alpine
+    container_name: hongbao-redis
     ports:
-      - "6379:6379"
-    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_dev}
+      - "${REDIS_PORT:-6379}:6379"
+    # Redis can run with or without password
+    # If REDIS_PASSWORD is set, use it; otherwise run without password
+    command: >
+      sh -c "
+      if [ -n \"$$REDIS_PASSWORD\" ]; then
+        redis-server --requirepass $$REDIS_PASSWORD
+      else
+        redis-server
+      fi
+      "
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
+    networks:
+      - hongbao-network
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+
+networks:
+  hongbao-network:
+    driver: bridge
 
