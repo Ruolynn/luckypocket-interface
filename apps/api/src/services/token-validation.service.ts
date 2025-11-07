@@ -236,7 +236,11 @@ export class TokenValidationService {
     const isWhitelisted = this.isWhitelisted(tokenAddress)
     if (isWhitelisted) {
       // 白名单代币仍然需要获取元数据，但跳过风险检查
-      let metadata = { symbol: null, decimals: null, name: null }
+      let metadata: { symbol: string | null; decimals: number | null; name: string | null } = {
+        symbol: null,
+        decimals: null,
+        name: null,
+      }
       try {
         metadata = await getTokenMetadata(tokenAddress)
       } catch (error) {
@@ -260,7 +264,11 @@ export class TokenValidationService {
     const isERC20 = await this.validateERC20Interface(tokenAddress)
 
     // 4. 获取元数据
-    let metadata = { symbol: null, decimals: null, name: null }
+    let metadata: { symbol: string | null; decimals: number | null; name: string | null } = {
+      symbol: null,
+      decimals: null,
+      name: null,
+    }
     try {
       metadata = await getTokenMetadata(tokenAddress)
     } catch (error) {

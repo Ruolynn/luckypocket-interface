@@ -22,6 +22,10 @@ model User {
   receivedGifts Gift[]      @relation("ReceivedGifts")
   giftClaims    GiftClaim[]
 
+  // Packet relations
+  createdPackets Packet[]      @relation("CreatedPackets")
+  claimedPackets PacketClaim[] @relation("ClaimedPackets")
+
   // Invitation relations
   inviter             User?        @relation("Invitations", fields: [inviterId], references: [id])
   inviterId           String?
@@ -186,4 +190,85 @@ model GiftClaim {
   @@index([txHash])
   @@index([chainId, txHash]) // Composite: multi-chain transaction lookup
   @@map("gift_claims")
+}
+
+// ============================================
+// RedPacket Models
+// ============================================
+
+model Packet {
+  id       String @id @default(cuid())
+  packetId String @unique // bytes32 from contract
+  txHash   String @unique // Transaction hash of packet creation
+  chainId  Int    @default(11155111) // Chain ID (11155111 for Sepolia)
+
+  // Creator
+  creatorId String
+  creator   User   @relation("CreatedPackets", fields: [creatorId], references: [id])
+
+  // Token info
+  token         String // ERC20 address or 0x0 for ETH
+  tokenSymbol   String? // Token symbol (e.g., "USDC")
+  tokenDecimals Int? // Token decimals (e.g., 6, 18)
+  tokenName     String? // Token name (e.g., "USD Coin")
+
+  // Packet config
+  totalAmount String // BigInt as string (original total amount)
+  count       Int // Total number of claims allowed
+  isRandom    Boolean // Fixed or random amounts
+  message     String? @db.VarChar(100) // Blessing message
+
+  // Remaining (updated on each claim)
+  remainingAmount String // BigInt as string (current remaining amount)
+  remainingCount  Int // Current remaining claim count
+
+  // VRF status
+  vrfRequestId String? // Chainlink VRF request ID
+  randomReady  Boolean @default(false) // PacketRandomReady event received
+
+  // Timestamps
+  expireTime DateTime // When packet expires
+  refunded   Boolean  @default(false) // Whether packet was refunded
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  claims PacketClaim[]
+
+  // Block tracking (for reorg handling)
+  blockNumber BigInt? // Block number of creation transaction
+  blockHash   String? // Block hash of creation transaction
+
+  @@index([packetId])
+  @@index([creatorId])
+  @@index([expireTime])
+  @@index([blockNumber])
+  @@index([chainId, packetId]) // Composite: multi-chain support
+  @@index([creatorId, createdAt]) // Composite: user's packets by time
+  @@index([randomReady]) // For filtering packets waiting for VRF
+  @@map("packets")
+}
+
+model PacketClaim {
+  id        String   @id @default(cuid())
+  packetId  String
+  packet    Packet   @relation(fields: [packetId], references: [id], onDelete: Cascade)
+  claimerId String
+  claimer   User     @relation("ClaimedPackets", fields: [claimerId], references: [id])
+  amount    String // BigInt as string (amount claimed)
+  txHash    String   @unique // Claim transaction hash
+  isBest    Boolean  @default(false) // 手气最佳 (best luck marker)
+  claimedAt DateTime @default(now())
+
+  // Block tracking (for reorg handling)
+  blockNumber BigInt? // Block number of claim transaction
+  blockHash   String? // Block hash of claim transaction
+
+  @@unique([packetId, claimerId]) // One claim per packet per user
+  @@index([packetId])
+  @@index([claimerId])
+  @@index([isBest])
+  @@index([blockNumber])
+  @@index([claimedAt])
+  @@map("packet_claims")
 }
