@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Decorations } from '@/lib/icons'
 
 export function EnhancedHero() {
   return (
@@ -9,6 +10,8 @@ export function EnhancedHero() {
       <div className="absolute inset-0">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-accent" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+        {/* Coin Rain Effect */}
+        <Decorations.CoinRain />
       </div>
 
       {/* Content */}
