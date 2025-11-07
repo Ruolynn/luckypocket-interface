@@ -7,6 +7,7 @@ import { MainLayout } from '@/components/MainLayout'
 import { ClaimGift } from '@/components/gift/ClaimGift'
 import { LoadingState } from '@/components/LoadingState'
 import type { Gift } from '@/lib/gift-types'
+import { giftsAPI, APIError, NetworkError } from '@/lib/api/gifts'
 
 export default function GiftDetailPage() {
   const params = useParams()
@@ -26,17 +27,25 @@ export default function GiftDetailPage() {
 
   const fetchGiftDetails = async () => {
     setLoading(true)
-    try {
-      // TODO: Implement API call to fetch gift details
-      // const response = await fetch(`/api/v1/gifts/${giftId}`)
-      // const data = await response.json()
-      // setGift(data.gift)
+    setError(null)
 
-      // Mock data for now
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      setError('Gift not found')
-    } catch (err) {
-      setError('Failed to load gift details')
+    try {
+      const giftData = await giftsAPI.getGift(giftId)
+      setGift(giftData)
+    } catch (err: any) {
+      console.error('Failed to fetch gift details:', err)
+
+      if (err instanceof APIError) {
+        if (err.statusCode === 404) {
+          setError('Gift not found')
+        } else {
+          setError(`Failed to load gift: ${err.message}`)
+        }
+      } else if (err instanceof NetworkError) {
+        setError('Network error. Please check your connection.')
+      } else {
+        setError('Failed to load gift details. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
@@ -60,26 +69,61 @@ export default function GiftDetailPage() {
           <h2 className="text-2xl font-bold text-text-primary-light">
             {error || 'Gift Not Found'}
           </h2>
-          <p className="text-text-secondary-light">
-            The gift you&apos;re looking for doesn&apos;t exist or has been removed.
+          <p className="text-text-secondary-light max-w-md text-center">
+            {error === 'Gift not found'
+              ? "The gift you're looking for doesn't exist or has been removed."
+              : "There was a problem loading the gift details. Please try again."}
           </p>
-          <Link
-            href="/gifts"
-            className="glass-button px-6 py-3 rounded-lg font-medium text-primary"
-          >
-            View All Gifts
-          </Link>
+          <div className="flex gap-3">
+            {error && error !== 'Gift not found' && (
+              <button
+                onClick={fetchGiftDetails}
+                className="glass-button px-6 py-3 rounded-lg font-medium text-primary"
+              >
+                Try Again
+              </button>
+            )}
+            <Link
+              href="/gifts"
+              className="glass-button-secondary px-6 py-3 rounded-lg font-medium text-text-primary-light"
+            >
+              View All Gifts
+            </Link>
+          </div>
         </div>
       </MainLayout>
     )
   }
 
   const getThemeColors = () => {
-    // TODO: Get theme colors based on gift.theme
-    return {
-      bg: 'from-red-500/20 to-pink-500/20',
-      accent: 'text-red-500',
+    const themeMap: Record<string, { bg: string; accent: string }> = {
+      default: {
+        bg: 'from-red-500/20 to-red-300/20',
+        accent: 'text-red-500',
+      },
+      blue: {
+        bg: 'from-blue-500/20 to-blue-300/20',
+        accent: 'text-blue-500',
+      },
+      purple: {
+        bg: 'from-purple-500/20 to-purple-300/20',
+        accent: 'text-purple-500',
+      },
+      gold: {
+        bg: 'from-amber-500/20 to-yellow-300/20',
+        accent: 'text-amber-500',
+      },
+      green: {
+        bg: 'from-green-500/20 to-emerald-300/20',
+        accent: 'text-green-500',
+      },
+      pink: {
+        bg: 'from-pink-500/20 to-pink-300/20',
+        accent: 'text-pink-500',
+      },
     }
+
+    return themeMap[gift?.theme || 'default'] || themeMap.default
   }
 
   const theme = getThemeColors()
@@ -173,7 +217,15 @@ export default function GiftDetailPage() {
         </div>
 
         {/* Claim Section */}
-        {showClaim && <ClaimGift gift={gift} />}
+        {showClaim && (
+          <ClaimGift
+            gift={gift}
+            onSuccess={() => {
+              // Refresh gift details after successful claim
+              fetchGiftDetails()
+            }}
+          />
+        )}
 
         {/* Transaction Info */}
         {gift.txHash && (

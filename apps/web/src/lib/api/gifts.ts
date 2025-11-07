@@ -165,69 +165,69 @@ class GiftsAPI {
   }
 
   /**
-   * Get user sent gifts
+   * Get user sent gifts (uses general gifts endpoint with senderId filter)
    */
   async getUserSentGifts(
-    address: string,
+    userId: string,
     params?: {
-      page?: number
+      status?: 'PENDING' | 'CLAIMED' | 'REFUNDED' | 'EXPIRED'
       limit?: number
-      status?: string
-      sortBy?: 'createdAt' | 'expiresAt'
+      offset?: number
+      orderBy?: 'createdAt' | 'expiresAt'
       order?: 'asc' | 'desc'
     }
   ): Promise<{
-    data: Gift[]
-    pagination: {
-      page: number
-      limit: number
-      total: number
-      hasMore: boolean
-    }
+    gifts: Gift[]
+    total: number
+    limit: number
+    offset: number
+    hasMore: boolean
   }> {
     const searchParams = new URLSearchParams()
+    searchParams.set('senderId', userId)
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          searchParams.append(key, String(value))
+          searchParams.set(key, String(value))
         }
       })
     }
 
-    return this.request(`/api/v1/users/${address}/gifts/sent?${searchParams.toString()}`)
+    return this.request(`/api/v1/gifts?${searchParams.toString()}`)
   }
 
   /**
-   * Get user received gifts
+   * Get user received gifts (uses general gifts endpoint with recipientAddress filter)
    */
   async getUserReceivedGifts(
-    address: string,
+    recipientAddress: string,
     params?: {
-      page?: number
+      status?: 'PENDING' | 'CLAIMED' | 'REFUNDED' | 'EXPIRED'
       limit?: number
-      status?: string
-      sortBy?: 'createdAt' | 'expiresAt'
+      offset?: number
+      orderBy?: 'createdAt' | 'expiresAt'
       order?: 'asc' | 'desc'
     }
   ): Promise<{
-    data: Gift[]
-    pagination: {
-      page: number
-      limit: number
-      total: number
-      hasMore: boolean
-    }
+    gifts: Gift[]
+    total: number
+    limit: number
+    offset: number
+    hasMore: boolean
   }> {
     const searchParams = new URLSearchParams()
+    searchParams.set('recipientAddress', recipientAddress)
+
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) {
-          searchParams.append(key, String(value))
+          searchParams.set(key, String(value))
         }
       })
     }
 
-    return this.request(`/api/v1/users/${address}/gifts/received?${searchParams.toString()}`)
+    return this.request(`/api/v1/gifts?${searchParams.toString()}`)
   }
 
   /**
@@ -308,6 +308,62 @@ class GiftsAPI {
     return this.request(`/api/v1/gifts/${giftId}/claim`, {
       method: 'POST',
       body: JSON.stringify(data),
+    })
+  }
+
+  /**
+   * Refund an expired gift
+   */
+  async refundGift(giftId: string): Promise<{
+    success: boolean
+    txHash: string
+  }> {
+    return this.request(`/api/v1/gifts/${giftId}/refund`, {
+      method: 'POST',
+    })
+  }
+
+  /**
+   * Proxy claim gift (gas-less claim with signature or ERC-4337)
+   */
+  async proxyClaimGift(
+    giftId: string,
+    data?: {
+      signature?: string
+      message?: string
+      usePaymaster?: boolean
+    }
+  ): Promise<{
+    success: boolean
+    txHash?: string
+    message?: string
+    nonce?: string
+    instructions?: string
+  }> {
+    return this.request(`/api/v1/gifts/${giftId}/claim-proxy`, {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    })
+  }
+
+  /**
+   * Validate ERC20 token
+   */
+  async validateToken(tokenAddress: string): Promise<{
+    isValid: boolean
+    isERC20: boolean
+    isBlacklisted: boolean
+    metadata: {
+      symbol?: string
+      decimals?: number
+      name?: string
+    }
+    risks: string[]
+    warnings: string[]
+  }> {
+    return this.request('/api/v1/tokens/validate', {
+      method: 'POST',
+      body: JSON.stringify({ tokenAddress }),
     })
   }
 
