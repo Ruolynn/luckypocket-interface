@@ -7,13 +7,19 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "pnpm -r build",
+    "build": "pnpm --filter @luckypocket/web build",
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @luckypocket/web dev",
     "dev:api": "pnpm --filter @luckypocket/api dev",
     "lint": "pnpm -r lint"
   },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
   "devDependencies": {
-    "@mseep/linear-mcp": "^78.0.1"
+    "@mseep/linear-mcp": "^78.0.1",
+    "typescript": "^5.3.3"
   }
 }
