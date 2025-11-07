@@ -93,6 +93,11 @@ SENTRY_DSN=your_sentry_dsn
 # Linear 集成（可选）
 LINEAR_API_KEY=your_linear_api_key
 LINEAR_TEAM_KEY=your_team_key
+
+# 压测专用配置（可选）
+LOADTEST_MODE=false
+LOADTEST_TOKEN_DECIMALS=6
+LOADTEST_AUTO_CREATE_RECIPIENT=true
 ```
 
 ### 4. 配置 Web 前端环境变量
@@ -127,6 +132,9 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:3001
 | `PROXY_WALLET_PRIVATE_KEY` | 否 | 代理钱包私钥 | - |
 | `ENABLE_ERC4337_PAYMASTER` | 否 | 启用 ERC-4337 Paymaster | `false` |
 | `TOKEN_BLACKLIST` | 否 | 代币黑名单（逗号分隔） | - |
+| `LOADTEST_MODE` | 否 | 启用后端压测 Mock 模式（跳过链上交互） | `false` |
+| `LOADTEST_TOKEN_DECIMALS` | 否 | 压测模式下 ERC20 金额精度 | `6` |
+| `LOADTEST_AUTO_CREATE_RECIPIENT` | 否 | 压测模式自动创建收礼用户 | `true` |
 | `SYNC_FROM_BLOCK` | 否 | 事件同步起始区块 | - |
 | `WEB_URL` | 否 | Web 前端 URL | `http://localhost:3000` |
 | `SENTRY_DSN` | 否 | Sentry DSN | - |

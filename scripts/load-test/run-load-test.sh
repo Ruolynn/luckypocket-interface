@@ -40,10 +40,59 @@ if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
 fi
 
 echo ""
-echo -e "${GREEN}开始运行压力测试...${NC}\n"
+echo -e "${GREEN}请选择要执行的压测场景：${NC}"
+echo -e "  1) API 基线 (k6-api-test.js)"
+echo -e "  2) WebSocket 通道 (k6-websocket-test.js)"
+echo -e "  3) 创建礼物业务链路 (k6-create-gift.js)"
+echo -e "  4) 领取礼物业务链路 (k6-claim-gift.js)"
+echo -e "  5) Frame 领取链路 (k6-frame-claim.js)"
+echo -e "  6) 全部依次执行"
+echo -e "  0) 退出"
 
-# 运行 k6 测试
-k6 run --env API_URL="${API_URL}" scripts/load-test/k6-api-test.js
+read -p "请输入选项编号: " choice
+
+run_k6() {
+  local script="$1"
+  shift
+  echo -e "\n${BLUE}▶️  运行 ${script}${NC}"
+  k6 run --env API_URL="${API_URL}" "$@" "${script}"
+}
+
+case "$choice" in
+  1)
+    run_k6 scripts/load-test/k6-api-test.js
+    ;;
+  2)
+    run_k6 scripts/load-test/k6-websocket-test.js
+    ;;
+  3)
+    echo -e "${YELLOW}提示：需提前配置 JWT_SECRET/SENDER_USER_ID/SENDER_ADDRESS 等变量${NC}"
+    run_k6 scripts/load-test/k6-create-gift.js
+    ;;
+  4)
+    echo -e "${YELLOW}提示：需提前准备待领取的礼物与对应用户信息${NC}"
+    run_k6 scripts/load-test/k6-claim-gift.js
+    ;;
+  5)
+    echo -e "${YELLOW}提示：需在 FRAME_TARGETS 中配置 packetId:fid 列表${NC}"
+    run_k6 scripts/load-test/k6-frame-claim.js
+    ;;
+  6)
+    run_k6 scripts/load-test/k6-api-test.js
+    run_k6 scripts/load-test/k6-websocket-test.js
+    run_k6 scripts/load-test/k6-create-gift.js
+    run_k6 scripts/load-test/k6-claim-gift.js
+    run_k6 scripts/load-test/k6-frame-claim.js
+    ;;
+  0)
+    echo -e "${YELLOW}已取消压测${NC}"
+    exit 0
+    ;;
+  *)
+    echo -e "${RED}无效的选项${NC}"
+    exit 1
+    ;;
+esac
 
 echo -e "\n${GREEN}✅ 测试完成${NC}"
 

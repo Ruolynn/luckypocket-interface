@@ -19,6 +19,7 @@ const CreateGiftSchema = z.object({
   amount: z.string().regex(/^\d+(\.\d+)?$/, 'Invalid amount'),
   daysUntilExpiry: z.number().int().min(1).max(365),
   message: z.string().max(500).optional(),
+  tokenDecimals: z.number().int().min(0).max(36).optional(),
 })
 
 const GetGiftsQuerySchema = z.object({

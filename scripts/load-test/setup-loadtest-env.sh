@@ -34,42 +34,61 @@ if ! $DOCKER_COMPOSE_CMD up -d postgres redis; then
   exit 1
 fi
 
-info "等待 PostgreSQL 就绪..."
-for _ in {1..30}; do
-  if docker exec $(docker ps --filter "name=postgres" --format "{{.ID}}" | head -n1) pg_isready >/dev/null 2>&1; then
-    success "PostgreSQL 已就绪"
-    break
-  fi
-  sleep 1
-done
+POSTGRES_CONTAINER=$(docker ps --filter "name=postgres" --format "{{.ID}}" | head -n1)
+if [ -n "$POSTGRES_CONTAINER" ]; then
+  info "等待 PostgreSQL 就绪..."
+  for _ in {1..30}; do
+    if docker exec "$POSTGRES_CONTAINER" pg_isready >/dev/null 2>&1; then
+      success "PostgreSQL 已就绪"
+      break
+    fi
+    sleep 1
+  done
+else
+  warn "未检测到 postgres 容器，跳过可用性检查"
+fi
 
-info "等待 Redis 就绪..."
-for _ in {1..30}; do
-  if redis-cli -u "$(grep REDIS_URL "$ENV_FILE" | cut -d '=' -f2)" ping >/dev/null 2>&1; then
-    success "Redis 已就绪"
-    break
-  fi
-  sleep 1
-done
+REDIS_CONTAINER=$(docker ps --filter "name=redis" --format "{{.ID}}" | head -n1)
+if [ -n "$REDIS_CONTAINER" ]; then
+  info "等待 Redis 就绪..."
+  for _ in {1..30}; do
+    if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
+      success "Redis 已就绪"
+      break
+    fi
+    sleep 1
+  done
+else
+  warn "未检测到 redis 容器，跳过可用性检查"
+fi
 
 info "安装依赖..."
 pnpm install --filter @luckypocket/api
 
 info "运行 prisma migrate deploy..."
 cd "$API_DIR"
-ENV_FILE_EXPORT="dotenv -e .env.loadtest --"
 if command -v dotenv >/dev/null 2>&1; then
-  eval "$ENV_FILE_EXPORT pnpm prisma migrate deploy"
+  dotenv -e .env.loadtest pnpm prisma migrate deploy
 else
-  warn "未检测到 dotenv-cli，直接使用 pnpm --filter 执行"
+  warn "未检测到 dotenv-cli，将直接加载 .env.loadtest"
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
   pnpm prisma migrate deploy
 fi
 
-info "执行种子数据..."
+info "执行种子数据 (若已配置)..."
+set +e
 if command -v dotenv >/dev/null 2>&1; then
-  eval "$ENV_FILE_EXPORT pnpm prisma db seed"
+  dotenv -e .env.loadtest pnpm prisma db seed
 else
   pnpm prisma db seed
+fi
+SEED_EXIT=$?
+set -e
+if [ $SEED_EXIT -ne 0 ]; then
+  warn "Prisma seed 未配置或执行失败，已跳过"
 fi
 
 success "Loadtest 环境初始化完成！"

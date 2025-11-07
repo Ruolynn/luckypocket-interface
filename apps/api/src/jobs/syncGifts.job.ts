@@ -13,6 +13,11 @@ let eventListener: EventListenerService | null = null
  * Start the gift sync job
  */
 export async function startSyncGiftsJob(app: FastifyInstance) {
+  if (process.env.LOADTEST_MODE === 'true') {
+    app.log.info('⏭️  Loadtest mode enabled, skipping gift sync job')
+    return
+  }
+
   const RPC_URL = process.env.ETHEREUM_RPC_URL
   const CONTRACT_ADDRESS = process.env.DEGIFT_CONTRACT_ADDRESS as Address
   const CHAIN_ID = 11155111 // Sepolia

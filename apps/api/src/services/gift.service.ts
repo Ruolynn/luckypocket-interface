@@ -16,6 +16,7 @@ import {
 import { sepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 import { DeGiftAbi, ERC20Abi } from '../abi/DeGift'
+import { randomBytes } from 'crypto'
 
 export interface CreateGiftParams {
   recipientAddress: string
@@ -26,6 +27,7 @@ export interface CreateGiftParams {
   daysUntilExpiry: number
   message?: string
   senderAddress: string
+  tokenDecimals?: number
 }
 
 export interface ClaimGiftParams {
@@ -56,6 +58,10 @@ export class GiftService {
    * In production, gifts should be created directly by users from frontend
    */
   async createGift(params: CreateGiftParams) {
+    if (process.env.LOADTEST_MODE === 'true') {
+      return this.createGiftMock(params)
+    }
+
     const {
       recipientAddress,
       tokenType,
@@ -203,6 +209,85 @@ export class GiftService {
       }
     } catch (error: any) {
       throw new Error(`Failed to create gift: ${error.message || error}`)
+    }
+  }
+
+  private async createGiftMock(params: CreateGiftParams) {
+    const {
+      recipientAddress,
+      tokenType,
+      tokenAddress,
+      tokenId,
+      amount,
+      daysUntilExpiry,
+      message = '',
+      senderAddress,
+      tokenDecimals,
+    } = params
+
+    const expiresAt = new Date(Date.now() + daysUntilExpiry * 24 * 60 * 60 * 1000)
+    const chainId = Number(process.env.CHAIN_ID ?? 11155111)
+    const defaultDecimals = Number(process.env.LOADTEST_TOKEN_DECIMALS ?? 6)
+    const decimalsToUse = tokenDecimals ?? defaultDecimals
+
+    const sender = await this.prisma.user.upsert({
+      where: { address: senderAddress.toLowerCase() },
+      update: {},
+      create: {
+        address: senderAddress.toLowerCase(),
+      },
+    })
+
+    const autoCreateRecipient = process.env.LOADTEST_AUTO_CREATE_RECIPIENT !== 'false'
+    const recipientUser = await this.prisma.user.findUnique({ where: { address: recipientAddress.toLowerCase() } })
+    const recipient = autoCreateRecipient
+      ? await this.prisma.user.upsert({
+          where: { address: recipientAddress.toLowerCase() },
+          update: {},
+          create: { address: recipientAddress.toLowerCase() },
+        })
+      : recipientUser
+
+    const giftId = `0x${randomBytes(32).toString('hex')}`
+    const txHash = `0x${randomBytes(32).toString('hex')}`
+
+    let amountInWei: bigint
+    try {
+      if (tokenType === 'ETH') {
+        amountInWei = parseEther(amount)
+      } else if (tokenType === 'ERC20') {
+        amountInWei = parseUnits(amount, decimalsToUse)
+      } else {
+        amountInWei = BigInt(amount)
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to parse amount in loadtest mode: ${error?.message || error}`)
+    }
+
+    const created = await this.prisma.gift.create({
+      data: {
+        giftId,
+        chainId,
+        createTxHash: txHash,
+        senderId: sender.id,
+        recipientAddress: recipientAddress.toLowerCase(),
+        recipientId: recipient?.id,
+        tokenType: tokenType as TokenType,
+        token: tokenType === 'ETH' ? '0x0000000000000000000000000000000000000000' : (tokenAddress?.toLowerCase() ?? '0x0000000000000000000000000000000000000000'),
+        tokenId: tokenId || '0',
+        amount: amountInWei.toString(),
+        tokenDecimals: tokenType === 'ETH' ? 18 : decimalsToUse,
+        tokenSymbol: tokenType === 'ETH' ? 'ETH' : undefined,
+        message,
+        status: 'PENDING',
+        expiresAt,
+      },
+    })
+
+    return {
+      txHash,
+      giftId: created.giftId,
+      blockNumber: Number(process.env.LOADTEST_BLOCK_NUMBER ?? 0),
     }
   }
 

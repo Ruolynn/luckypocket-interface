@@ -23,6 +23,7 @@ import { startSyncGiftsJob } from './jobs/syncGifts.job'
 
 export async function buildApp(options?: { withJobs?: boolean; withSocket?: boolean }) {
   const app = Fastify({ logger: false })
+  const isLoadtest = process.env.LOADTEST_MODE === 'true'
 
   await app.register(cors, { origin: true, credentials: true })
   await app.register(sentryPlugin)
@@ -37,7 +38,11 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(prismaPlugin)
   await app.register(redisPlugin)
   await app.register(jwtPlugin)
-  await app.register(chainPlugin)
+  if (!isLoadtest) {
+    await app.register(chainPlugin)
+  } else {
+    app.decorate('chain', { client: null as any })
+  }
   await app.register(invitePlugin)
   await app.register(achievementPlugin)
   if (options?.withSocket !== false) {
@@ -56,9 +61,11 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
   await app.register(frameRoutes)
   await app.register(linearRoutes)
 
-  if (options?.withJobs) {
+  if (options?.withJobs && !isLoadtest) {
     await startRebuildLeaderboardJob(app)
     await startSyncGiftsJob(app)
+  } else if (options?.withJobs && isLoadtest) {
+    app.log.info('⏭️  Loadtest mode enabled, skipping background jobs (leaderboard rebuild, gift sync)')
   }
 
   return app
