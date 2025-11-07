@@ -11,6 +11,7 @@ import invitePlugin from './plugins/invite'
 import achievementPlugin from './plugins/achievement'
 import authRoutes from './routes/auth'
 import giftsRoutes from './routes/gifts'
+import packetsRoutes from './routes/packets'
 import usersRoutes from './routes/users'
 import statsRoutes from './routes/stats'
 import inviteRoutes from './routes/growth/invite'
@@ -53,6 +54,7 @@ export async function buildApp(options?: { withJobs?: boolean; withSocket?: bool
 
   await app.register(authRoutes)
   await app.register(giftsRoutes)
+  await app.register(packetsRoutes, { prefix: '/api/v1/packets' })
   await app.register(usersRoutes)
   await app.register(statsRoutes)
   await app.register(inviteRoutes)
