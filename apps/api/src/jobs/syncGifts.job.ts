@@ -6,10 +6,12 @@
 import type { FastifyInstance } from 'fastify'
 import { EventListenerService } from '../services/event-listener.service'
 import { RedPacketListenerService } from '../services/redpacket-listener.service'
+import { ReorgDetectionService } from '../services/reorg-detection.service'
 import type { Address } from 'viem'
 
 let eventListener: EventListenerService | null = null
 let redPacketListener: RedPacketListenerService | null = null
+let reorgDetector: ReorgDetectionService | null = null
 
 /**
  * Start the gift sync job
@@ -85,6 +87,23 @@ export async function startSyncGiftsJob(app: FastifyInstance) {
       app.log.warn('⚠️  Skipping RedPacket listener: Missing REDPACKET_CONTRACT_ADDRESS')
     }
 
+    // Start reorg detection service if RedPacket listener is enabled
+    if (REDPACKET_CONTRACT) {
+      app.log.info('🔍 Starting reorg detection service...')
+      reorgDetector = new ReorgDetectionService(
+        {
+          rpcUrl: RPC_URL,
+          chainId: CHAIN_ID,
+          checkDepth: 12, // Check last 12 blocks (~3 minutes on Sepolia)
+          checkInterval: 60_000, // Check every minute
+        },
+        app.prisma
+      )
+
+      await reorgDetector.start()
+      app.log.info('✅ Reorg detection service started')
+    }
+
     app.log.info('✅ Blockchain sync job started successfully')
   } catch (error) {
     app.log.error({ error }, '❌ Failed to start blockchain sync job')
@@ -104,10 +123,14 @@ export async function stopSyncGiftsJob() {
     await redPacketListener.stop()
     redPacketListener = null
   }
+  if (reorgDetector) {
+    await reorgDetector.stop()
+    reorgDetector = null
+  }
 }
 
 /**
- * Get event listener instances (for testing/debugging)
+ * Get service instances (for testing/debugging)
  */
 export function getEventListener() {
   return eventListener
@@ -115,4 +138,8 @@ export function getEventListener() {
 
 export function getRedPacketListener() {
   return redPacketListener
+}
+
+export function getReorgDetector() {
+  return reorgDetector
 }
