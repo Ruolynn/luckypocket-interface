@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
 import { MainLayout } from '@/components/MainLayout'
-import { images } from '@/lib/images'
 import { Icons, Decorations } from '@/lib/icons'
 
 type PacketType = 'fixed' | 'random'
@@ -55,17 +53,6 @@ export default function CreatePacketPage() {
       <div className="space-y-6 xs:space-y-8">
         {/* Enhanced Header with Background */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-purple-50/50 to-accent/10 mb-6 xs:mb-8 mx-3 xs:mx-4">
-          {/* Background Image */}
-          <div className="absolute inset-0 opacity-15">
-            <Image
-              src={images.technology.network}
-              alt="Digital network"
-              fill
-              className="object-cover"
-              sizes="100vw"
-            />
-          </div>
-
           {/* Decorative Gradient Blobs */}
           <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/30 rounded-full blur-3xl" />
           <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-accent/30 rounded-full blur-3xl" />

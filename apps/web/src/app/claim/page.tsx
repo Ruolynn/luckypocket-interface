@@ -2,11 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { MainLayout } from '@/components/MainLayout'
 import { useAccount } from 'wagmi'
 import { ConnectButton } from '@rainbow-me/rainbowkit'
-import { images } from '@/lib/images'
 import { Icons, Decorations } from '@/lib/icons'
 
 export default function ClaimPage() {
@@ -78,17 +76,6 @@ export default function ClaimPage() {
         {/* Enhanced Header with Background */}
         <div className="w-full max-w-4xl mb-6 xs:mb-8">
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-accent/5 to-primary/10 p-8 xs:p-12">
-            {/* Background Image */}
-            <div className="absolute inset-0 opacity-10">
-              <Image
-                src={images.celebration.gift}
-                alt="Gift celebration"
-                fill
-                className="object-cover"
-                sizes="100vw"
-              />
-            </div>
-
             {/* Decorative Elements */}
             <div className="absolute top-4 right-4 w-20 h-20 bg-primary/20 rounded-full blur-2xl" />
             <div className="absolute bottom-4 left-4 w-32 h-32 bg-accent/20 rounded-full blur-3xl" />
